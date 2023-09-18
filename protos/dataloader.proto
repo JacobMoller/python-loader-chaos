@@ -1,0 +1,283 @@
+syntax = "proto3";
+
+package dataloader;
+option go_package = "m3.dataloader/dataloader";
+
+service DataLoader {
+  // -------------------------- Medias
+  rpc getMedias (GetMediasRequest) returns (stream MediaResponse) {}  // Get all the medias stored in DB, with optional type filter
+  rpc getMediaById (IdRequest) returns (MediaResponse) {}             // Get a single media with the given ID
+	rpc getMediaByURI (GetMediaByURIRequest) returns (MediaResponse) {} // Get a single media with the given URI
+  rpc createMedia (CreateMediaRequest) returns (MediaResponse) {}     // Create a single media with given URI, type and thumbnail URI
+  rpc createMediaStream (stream CreateMediaRequest) returns (stream CreateMediaStreamResponse) {} 
+  // Create multiple medias at the same time in batches, returns amount added/error messages when a batch is added
+  rpc deleteMedia (IdRequest) returns (StatusResponse) {}             // Delete a single media with the given ID
+
+	// -------------------------- TagSets
+	rpc getTagSets(GetTagSetsRequest) returns (stream TagSetResponse) {}; // Get all the tagsets stored in DB, with optional tagtype filter
+	rpc getTagSetById(IdRequest) returns (TagSetResponse) {};             // Get a single tagset with the given ID
+	rpc getTagSetByName(GetTagSetRequestByName) returns (TagSetResponse) {};  // Get a single tagset with the given name
+	rpc createTagSet(CreateTagSetRequest) returns (TagSetResponse) {};    // Create tagset or get tagset if already existent
+
+	// -------------------------- Tags
+	rpc getTags(GetTagsRequest) returns (stream TagResponse) {};  // Get all the tags stored in DB, with optional tagtype and tagset filters
+	rpc getTag(IdRequest) returns (TagResponse) {};               // Get a single tag with the given ID
+	rpc createTag(CreateTagRequest) returns (TagResponse) {};     // Create or get tag if already existent
+  rpc createTagStream(stream CreateTagStreamRequest) returns (stream CreateTagStreamResponse) {};
+    // Create multiple tags using batches of INSERT queries
+    // Returns a map of the given IDs to the created IDs (used for JSON imports)
+
+	// -------------------------- Taggings
+	rpc getTaggings(EmptyRequest) returns (stream TaggingResponse) {};    // Get all the taggings stored in DB
+  rpc getMediasWithTag(IdRequest) returns (RepeatedIdResponse) {};      // Get IDs of all medias with a given tag (only providing the ID)
+  rpc getMediaTags(IdRequest) returns (RepeatedIdResponse) {};          // Get IDs of all tags of a given media (only providing the ID)
+	rpc createTagging(CreateTaggingRequest) returns (TaggingResponse) {}; // Create a tagging, i.e. associate a given tag to a given media
+  rpc createTaggingStream(stream CreateTaggingRequest) returns (stream CreateTaggingStreamResponse) {};
+    // Create multiple taggings using batches of INSERT queries
+    // Returns the amount added at each batch addition (similiar behaviour as in createMediaStream)
+
+  // -------------------------- Hierarchies
+	rpc getHierarchies(GetHierarchiesRequest) returns (stream HierarchyResponse) {};  // Get all the hierarchies stored in DB, with optional tagset filter
+  rpc getHierarchy(IdRequest) returns (HierarchyResponse) {};                       // Get a single hierarchy with the given ID
+	rpc createHierarchy(CreateHierarchyRequest) returns (HierarchyResponse) {};       // Create hierarchy with the given name and tagset_id, 
+                                                                                    // or get it if already existent
+  
+  // -------------------------- Nodes
+  rpc getNodes (GetNodesRequest) returns (stream NodeResponse) {};  // Get all the nodes stored in DB, with optional hierarchy, tag or parent node filters
+  rpc getNode (IdRequest) returns (NodeResponse) {};                // Get a single node with the given ID
+  rpc createNode (CreateNodeRequest) returns (NodeResponse) {};     // Create or get a single node
+  rpc createNodeStream (stream CreateNodeRequest) returns (stream NodeResponse) {};    // NOT IMPLEMENTED
+  rpc deleteNode (IdRequest) returns (StatusResponse) {}            // Delete a single node with the given ID
+  
+  // Other
+	rpc resetDatabase (EmptyRequest) returns (StatusResponse) {};
+    // Reads and executes the DDL, which does 2 things: drop the schemas, and recreate all the tables and rules
+}
+
+// NOTE: all the responses have an "error_message" field for error propagation
+
+// General use
+message EmptyRequest {}
+
+message StatusResponse {
+  string error_message = 1;
+}
+
+message IdRequest {
+  int64 id = 1;
+}
+
+message IdResponse {
+	int64 id = 1;
+  string error_message = 2;
+}
+
+message RepeatedIdResponse {
+  repeated int64 ids = 1;
+  string error_message = 2;
+}
+
+// Media / medias
+
+message Media {
+	int64 id = 1;
+	string file_uri = 2;
+  int64 file_type = 3;    // 1- Images, 2- Videos, 3- Audio, 4- Other
+	string thumbnail_uri = 4;
+}
+
+message GetMediasRequest {
+  int64 file_type = 1;
+}
+
+message GetMediaByURIRequest {
+	string file_uri = 1;
+}
+
+message CreateMediaRequest {
+  Media media = 1;
+}
+
+message MediaResponse {
+  Media media = 1;
+  string error_message = 2;
+}
+
+message CreateMediaStreamResponse {  
+	int64 count = 1;
+  string error_message = 2;
+}
+
+
+// TagSets
+
+message TagSet {
+  int64 id = 1;
+  string name = 2;
+  int64 tagTypeId = 3;
+}
+
+message GetTagSetsRequest {
+  int64 tagTypeId = 1;
+}
+
+message GetTagSetRequestByName {
+  string name = 1;
+}
+
+message CreateTagSetRequest {
+  string name = 1;
+  int64 tagTypeId = 2;
+}
+
+message TagSetResponse {
+  TagSet tagset = 1;
+  string error_message = 2;
+}
+
+// Tags
+message Tag {
+  int64 id = 1;
+  int64 tagSetId = 2;
+  int64 tagTypeId = 3;
+  oneof value {
+    AlphanumericalValue alphanumerical = 4;
+    TimeStampValue timestamp = 5;
+    TimeValue time = 6;
+    DateValue date = 7;
+    NumericalValue numerical = 8;
+  }
+}
+
+message AlphanumericalValue {
+  string value = 1;
+}
+
+message NumericalValue {
+  int64 value = 1;
+}
+message DateValue {
+  // FORMAT: YYYY-MM-DD
+  string value = 1;
+}
+
+message TimeValue {
+  // FORMAT: hh:mm:ss
+  string value = 1;
+}
+
+message TimeStampValue {
+  // FORMAT: YYYY-MM-DD hh:mm:ss
+  string value = 1;
+}
+
+
+message GetTagsRequest {
+  int64 tagSetId = 1;
+	int64 tagTypeId = 2;
+}
+
+message CreateTagRequest {
+  int64 tagSetId = 2;
+  int64 tagTypeId = 3;
+  oneof value {
+    AlphanumericalValue alphanumerical = 4;
+    TimeStampValue timestamp = 5;
+    TimeValue time = 6;
+    DateValue date = 7;
+    NumericalValue numerical = 8;
+  }
+}
+
+message TagResponse {
+	Tag tag = 1;	
+  string error_message = 2;
+}
+
+message CreateTagStreamRequest {
+  int64 tagId = 1;
+  int64 tagSetId = 2;
+  int64 tagTypeId = 3;
+  oneof value {
+    AlphanumericalValue alphanumerical = 4;
+    TimeStampValue timestamp = 5;
+    TimeValue time = 6;
+    DateValue date = 7;
+    NumericalValue numerical = 8;
+  }
+}
+
+message CreateTagStreamResponse {
+  map<int64, int64> id_map = 1;
+  string error_message = 2;
+}
+
+// Tagging (mapped in table taggings)
+
+message Tagging {
+  int64 mediaId = 1;
+  int64 tagId = 2;
+}
+
+message CreateTaggingRequest {
+  int64 mediaId = 1;
+  int64 tagId = 2;
+}
+
+message TaggingResponse {
+  Tagging tagging = 1;
+	string error_message = 2;
+}
+
+message CreateTaggingStreamResponse {  
+	int64 count = 1;
+  string error_message = 2;
+}
+
+// Hierarchies
+message Hierarchy {
+  int64 id = 1;
+  string name = 2;
+  int64 tagSetId = 3;
+  int64 rootNodeId = 4;  
+}
+
+message GetHierarchiesRequest {
+  int64 tagSetId = 1;
+}
+
+message CreateHierarchyRequest {
+  string name = 1;
+  int64 tagSetId = 2;
+}
+
+message HierarchyResponse {
+  Hierarchy hierarchy = 1;
+  string error_message = 2;
+}
+
+
+// Nodes
+message Node {
+  int64 id = 1;
+  int64 tagId = 2;
+  int64 hierarchyId = 3;
+  int64 parentNodeId = 4;
+}
+
+message CreateNodeRequest {
+  int64 tagId = 1; 
+  int64 hierarchyId = 2;
+  int64 parentNodeId = 3;   // if Null, then it is the rootnode of the hierarchy
+}
+
+message GetNodesRequest {
+  int64 tagId = 1;
+  int64 hierarchyId = 2;
+  int64 parentNodeId = 3;
+}
+
+message NodeResponse {
+  Node node = 1;
+	string error_message = 2;
+}

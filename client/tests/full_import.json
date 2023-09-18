@@ -1,0 +1,157 @@
+{
+    "tagsets": [
+        {
+            "name": "Location",
+            "type": 1
+        },
+        {
+            "name": "TimeStamp",
+            "type": 2
+        },
+        {
+            "name": "Time",
+            "type": 3
+        },
+        {
+            "name": "Date",
+            "type": 4
+        },
+        {
+            "name": "Resolution",
+            "type": 5
+        }
+    ],
+    "medias": [
+        {
+            "path": "C:\\Users\\user\\Desktop\\4IF\\Stage\\iceland\\wdir\\python-loader\\client\\lessfiles\\background.jpg",
+            "tags": [
+                {
+                    "tagset_id": 1,
+                    "value": "Paris"
+                },
+                {
+                    "tagset_id": 2,
+                    "value": "1789-07-14 12:00:01"
+                },
+                {
+                    "tagset_id": 3,
+                    "value": "12:00:01"
+                },
+                {
+                    "tagset_id": 4,
+                    "value": "1789-07-14"
+                },
+                {
+                    "tagset_id": 5,
+                    "value": 1080
+                }
+            ]
+        },
+        {
+            "path": "C:\\Users\\user\\Desktop\\4IF\\Stage\\iceland\\wdir\\python-loader\\client\\lessfiles\\boing.jpg",
+            "tags": [
+                {
+                    "tagset_id": 1,
+                    "value": "Rome"
+                },
+                {
+                    "tagset_id": 2,
+                    "value": "2022-01-17 12:00:01"
+                },
+                {
+                    "tagset_id": 3,
+                    "value": "12:00:01"
+                },
+                {
+                    "tagset_id": 4,
+                    "value": "2022-01-17"
+                }
+            ]
+        },
+        {
+            "path": "C:\\Users\\user\\Desktop\\4IF\\Stage\\iceland\\wdir\\python-loader\\client\\lessfiles\\fontaines.png",
+            "tags": [
+                {
+                    "tagset_id": 1,
+                    "value": "Paris"
+                },
+                {
+                    "tagset_id": 2,
+                    "value": "2022-01-17 14:32:01"
+                },
+                {
+                    "tagset_id": 3,
+                    "value": "14:32:01"
+                },
+                {
+                    "tagset_id": 4,
+                    "value": "2022-01-17"
+                },
+                {
+                    "tagset_id": 5,
+                    "value": 3640
+                }
+            ]
+        },
+        {
+            "path": "C:\\Users\\user\\Desktop\\4IF\\Stage\\iceland\\wdir\\python-loader\\client\\lessfiles\\Demo Track 2.mp3",
+            "tags": [
+                {
+                    "tagset_id": 1,
+                    "value": "Reykjavik"
+                },
+                {
+                    "tagset_id": 5,
+                    "value": 44100
+                }
+            ]
+        }
+    ],
+    "hierarchies": [
+        {
+            "name": "Geography",
+            "tagset_id": 1,
+            "rootnode": {
+                "tag_value": "Europe",
+                "child_nodes": [
+                    {
+                        "tag_value": "Iceland",
+                        "child_nodes": [
+                            {
+                                "tag_value": "Reykjavik",
+                                "child_nodes": [
+                                    {
+                                        "tag_value": "101",
+                                        "child_nodes": []
+                                    }
+                                ]
+                            },
+                            {
+                                "tag_value": "Hella",
+                                "child_nodes": []
+                            }
+                        ]
+                    },
+                    {
+                        "tag_value": "Norway",
+                        "child_nodes": [
+                            {
+                                "tag_value": "Oslo",
+                                "child_nodes": []
+                            }
+                        ]
+                    },
+                    {
+                        "tag_value": "France",
+                        "child_nodes": [
+                            {
+                                "tag_value": "Paris",
+                                "child_nodes": []
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

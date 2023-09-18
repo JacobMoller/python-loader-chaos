@@ -1,0 +1,72 @@
+{
+    "tagsets": [
+        {
+            "name": "Location",
+            "type": 1
+        },
+        {
+            "name": "TimeStamp",
+            "type": 2
+        },
+        {
+            "name": "Time",
+            "type": 3
+        },
+        {
+            "name": "Date",
+            "type": 4
+        },
+        {
+            "name": "Resolution",
+            "type": 5
+        }
+    ],
+    "medias": [
+        {
+            "path": "C:\\Users\\user\\Desktop\\4IF\\Stage\\iceland\\wdir\\python-loader\\client\\lessfiles\\background.jpg",
+            "tags": []
+        },
+        {
+            "path": "C:\\Users\\user\\Desktop\\4IF\\Stage\\iceland\\wdir\\python-loader\\client\\lessfiles\\boing.jpg",
+            "tags": []
+        }
+    ],
+    "hierarchies": [
+        {
+            "name": "Geography",
+            "tagset_id": 1,
+            "rootnode": {
+                "tag_value": "Europe",
+                "child_nodes": [
+                    {
+                        "tag_value": "Iceland",
+                        "child_nodes": [
+                            {
+                                "tag_value": "Reykjavik",
+                                "child_nodes": [
+                                    {
+                                        "tag_value": "101",
+                                        "child_nodes": []
+                                    }
+                                ]
+                            },
+                            {
+                                "tag_value": "Hella",
+                                "child_nodes": []
+                            }
+                        ]
+                    },
+                    {
+                        "tag_value": "Norway",
+                        "child_nodes": [
+                            {
+                                "tag_value": "Oslo",
+                                "child_nodes": []
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

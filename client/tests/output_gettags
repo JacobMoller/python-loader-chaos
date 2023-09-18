@@ -1,0 +1,41 @@
+id: 1
+tagSetId: 1
+tagTypeId: 1
+alphanumerical {
+  value: "Paris"
+}
+
+id: 2
+tagSetId: 5
+tagTypeId: 5
+numerical {
+  value: 1080
+}
+
+id: 3
+tagSetId: 5
+tagTypeId: 5
+numerical {
+  value: 44100
+}
+
+id: 4
+tagSetId: 2
+tagTypeId: 2
+timestamp {
+  value: "1789-07-14 12:00:01"
+}
+
+id: 5
+tagSetId: 3
+tagTypeId: 3
+time {
+  value: "12:00:01"
+}
+
+id: 6
+tagSetId: 4
+tagTypeId: 4
+date {
+  value: "1789-07-14"
+}

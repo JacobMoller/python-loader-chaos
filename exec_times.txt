@@ -1,0 +1,23 @@
+EXPORTS TO JSON (LSCTEST)
+
+Tagsets and tags: ~15sec
+Medias:	- with print: 24sec, 29sec
+	- without: 14sec, 16sec
+Hierarchies: 	- with print: 241sec
+		- without: 200sec
+		- without and efficientTree: 92sec
+
+Total efficient + minimal prints : 114sec
+
+Total with multithreading: 65sec !
+
+tagsets+hierarchies : 	- 27sec w/o multithreading
+						- 20sec w/ multithreading
+
+IMPORT FROM JSON:
+Tagsets: 1min32 on empty db, 20sec on redundant import
+
+Medias: 3min47 with prints, 2min42 without  -> 30 it/sec, would mean 6h41 for LSC22...
+							6min45 computer unplugged wtf
+
+Hierarchies: 32sec with createNode print, 21sec without, 10sec on redundant import

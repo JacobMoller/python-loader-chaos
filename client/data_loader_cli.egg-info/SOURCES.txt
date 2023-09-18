@@ -1,0 +1,16 @@
+cli.py
+dataloader_pb2.py
+dataloader_pb2_grpc.py
+grpc_client.py
+setup.py
+data_loader_cli.egg-info/PKG-INFO
+data_loader_cli.egg-info/SOURCES.txt
+data_loader_cli.egg-info/dependency_links.txt
+data_loader_cli.egg-info/entry_points.txt
+data_loader_cli.egg-info/requires.txt
+data_loader_cli.egg-info/top_level.txt
+filemgmt/__init__.py
+filemgmt/csv.py
+filemgmt/filehandler.py
+filemgmt/json.py
+filemgmt/json_fast.py

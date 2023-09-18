@@ -1,0 +1,205 @@
+{
+    "tagsets": [
+        {
+            "id": 5,
+            "name": "Month (number)",
+            "type": 5,
+            "tags": [
+                {
+                    "id": 3,
+                    "value": 1
+                }
+            ]
+        },
+        {
+            "id": 10,
+            "name": "Year",
+            "type": 5,
+            "tags": [
+                {
+                    "id": 8,
+                    "value": 2019
+                }
+            ]
+        },
+        {
+            "id": 9,
+            "name": "Month (string)",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 7,
+                    "value": "January"
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "name": "Date",
+            "type": 4,
+            "tags": [
+                {
+                    "id": 34,
+                    "value": "2019-01-02"
+                },
+                {
+                    "id": 5,
+                    "value": "2019-01-04"
+                },
+                {
+                    "id": 24,
+                    "value": "2019-01-05"
+                },
+                {
+                    "id": 44,
+                    "value": "2019-01-01"
+                },
+                {
+                    "id": 14,
+                    "value": "2019-01-03"
+                }
+            ]
+        },
+        {
+            "id": 7,
+            "name": "Day within month",
+            "type": 5,
+            "tags": [
+                {
+                    "id": 25,
+                    "value": 4
+                },
+                {
+                    "id": 15,
+                    "value": 1
+                },
+                {
+                    "id": 6,
+                    "value": 3
+                },
+                {
+                    "id": 45,
+                    "value": 5
+                },
+                {
+                    "id": 35,
+                    "value": 2
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "Day of week (number)",
+            "type": 5,
+            "tags": [
+                {
+                    "id": 26,
+                    "value": 4
+                },
+                {
+                    "id": 47,
+                    "value": 2
+                },
+                {
+                    "id": 16,
+                    "value": 5
+                },
+                {
+                    "id": 36,
+                    "value": 6
+                },
+                {
+                    "id": 9,
+                    "value": 3
+                }
+            ]
+        },
+        {
+            "id": 8,
+            "name": "Day within year",
+            "type": 5,
+            "tags": [
+                {
+                    "id": 33,
+                    "value": 2
+                },
+                {
+                    "id": 13,
+                    "value": 4
+                },
+                {
+                    "id": 4,
+                    "value": 1
+                },
+                {
+                    "id": 23,
+                    "value": 5
+                },
+                {
+                    "id": 43,
+                    "value": 3
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "name": "Day of week (string)",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 27,
+                    "value": "Weekend"
+                },
+                {
+                    "id": 93,
+                    "value": "Sunday"
+                },
+                {
+                    "id": 17,
+                    "value": "Day of Week"
+                },
+                {
+                    "id": 10,
+                    "value": "Wednesday"
+                },
+                {
+                    "id": 64,
+                    "value": "Friday"
+                },
+                {
+                    "id": 46,
+                    "value": "Monday"
+                },
+                {
+                    "id": 83,
+                    "value": "Weekday"
+                },
+                {
+                    "id": 37,
+                    "value": "Tuesday"
+                },
+                {
+                    "id": 74,
+                    "value": "Thursday"
+                },
+                {
+                    "id": 53,
+                    "value": "Saturday"
+                }
+            ]
+        }
+    ],
+    "medias": [{
+        "path": "201901/01/20190101_103749_000.jpg",
+            "tags": [
+                27,
+                93,
+                36,
+                7,
+                8,
+                3
+            ]
+        }
+    ],
+    "hierarchies": []
+}
