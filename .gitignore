@@ -1,7 +1,5 @@
-*/.venv
-*/.env
-*/.env/
-*/.venv/
+*/client-venv
+*/server-venv
 
 .vscode
 */__pycache__
