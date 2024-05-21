@@ -1,0 +1,5 @@
+loader add tagset "Start frame" 5
+loader add tagset "End frame 5
+loader add tagset "fps" 5
+loader add <SF> tag 9 5
+loader add <EF> tag 10 5

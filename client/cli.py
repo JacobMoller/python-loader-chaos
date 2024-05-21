@@ -12,7 +12,7 @@ import datetime
 
 from grpc_client import LoaderClient
 from filemgmt.filehandler import FileHandler
-from filemgmt.json import JSONHandler
+from filemgmt.json_hr import JSONHandler
 from filemgmt.csv import CSVHandler
 from filemgmt.json_fast import FastJSONHandler
 

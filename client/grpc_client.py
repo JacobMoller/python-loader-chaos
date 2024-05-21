@@ -74,7 +74,7 @@ class LoaderClient:
 
     def add_file(self, path: str):
     # Add a specific file to the database.
-        file_path = os.path.abspath(path)
+        file_path = path #os.path.abspath(path)
         if path.lower().endswith(('jpg', 'png', 'bmp')):
             file_type = 1		# Image
         elif path.lower().endswith(('mp3', 'wav', 'flac')):
@@ -189,7 +189,12 @@ class LoaderClient:
                 )
             case _:
                 return 'Error : Not a valid tag type. Range is [1:5]'
-            
+
+        response = self.grpc_stub.createTag(request)
+        return response.error_message if response.error_message \
+        else response.tag
+   
+        
     def add_tags(self, tagset_id: int, tagtype_id: int, tags:list[dict]):
         def tags_iterator():
             for tag_item in tags:

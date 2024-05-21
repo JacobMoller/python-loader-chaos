@@ -1,7 +1,7 @@
 from concurrent import futures
 import logging
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg.rows import dict_row
 import random
 
 from words import WORDS
@@ -18,18 +18,16 @@ class DataLoader(DataLoaderServicer):
 
     def __init__(self) -> None:
         super().__init__()
-        self.conn = psycopg2.connect(
-            database="loader-testing",      # Change these values to correct database name and credentials
-            user="postgres",
-            password="root",
-            host="localhost",
-            port="5432",
+        self.conn = psycopg.connect(
+            conninfo="dbname=VBS24 user=postgres password=root host=localhost port=5432",
+            row_factory=dict_row, # Retreive the columns by their names
+            autocommit=True
         )
-        self.conn.autocommit = True
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)    # Special cursor to retreive the columns by their names
+        cursor = self.conn.cursor() 
         cursor.execute("select version()")
         data = cursor.fetchone()
         print("Connection established to: ", data)
+        cursor.close()
         
         # ! Uncomment to update an old schema with the new namings, triggers and tag_type in the tagsets table
         # try:
@@ -49,7 +47,7 @@ class DataLoader(DataLoaderServicer):
       
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getMedias request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = """SELECT * FROM public.medias;"""
             if request.file_type > 0 :
@@ -78,7 +76,7 @@ class DataLoader(DataLoaderServicer):
      
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getMediaById request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.medias WHERE id=%d" % request.id
             cursor.execute(sql)
@@ -104,7 +102,7 @@ class DataLoader(DataLoaderServicer):
       
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getMediaIdFromURI request with URI=%s" % (thread_id, request.file_uri))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.medias WHERE file_uri=%s"
             data = (request.file_uri,)  # The comma is to make it a tuple with one element
@@ -133,7 +131,7 @@ class DataLoader(DataLoaderServicer):
      
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received createMedia request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.medias WHERE file_uri = %s" 
             data = (request.media.file_uri,)                                # The comma is to make it a tuple with one element
@@ -182,7 +180,7 @@ class DataLoader(DataLoaderServicer):
 
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received createMediaStream request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         request_counter = 0
         sql = "INSERT INTO public.medias (file_uri, file_type, thumbnail_uri) VALUES "
         data = ()
@@ -226,7 +224,7 @@ class DataLoader(DataLoaderServicer):
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received deleteMedia request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         response = rpc_objects.StatusResponse()
         try:
             sql = "DELETE FROM public.medias WHERE id=%d;" % request.id
@@ -249,7 +247,7 @@ class DataLoader(DataLoaderServicer):
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getTagSets request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         count = 0
         try:
             sql = """SELECT * FROM public.tagsets"""
@@ -281,7 +279,7 @@ class DataLoader(DataLoaderServicer):
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getTagsetById request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.tagsets WHERE id=%d;" % request.id
             cursor.execute(sql)
@@ -307,7 +305,7 @@ class DataLoader(DataLoaderServicer):
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getTagSetByName request with name=%s" % (thread_id, request.name))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.tagsets WHERE name=%s"
             data = (request.name,)                              # The comma is to make it a tuple with one element
@@ -336,7 +334,7 @@ class DataLoader(DataLoaderServicer):
     
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received createTagSet request with name=%s and tag_type=%d" % (thread_id, request.name, request.tagTypeId))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             # Check if the name already exists
             sql = "SELECT * FROM public.tagsets WHERE name = %s;"
@@ -388,7 +386,7 @@ class DataLoader(DataLoaderServicer):
       
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getTags request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         count = 0
         try:
             sql = """SELECT
@@ -482,7 +480,7 @@ LEFT JOIN
         
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received getTag request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = """SELECT
     t.id,
@@ -564,7 +562,7 @@ LEFT JOIN
         # print("[%s] Received createTag request with tagset_id=%d and tagtype_id=%d" % (thread_id, request.tagSetId, request.tagTypeId))
         tagset_id = request.tagSetId
         tagtype_id = request.tagTypeId
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             # Check existence of the tag
             sql = """SELECT t.id, t.tagtype_id, t.tagset_id, a.name as value FROM 
@@ -725,7 +723,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
         tag_values = {}
         rownum_to_tagid_map = {}
 
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         for req in request_iterator:
             match req.tagTypeId:
                 case 1:
@@ -843,7 +841,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getTaggings request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.taggings"
             cursor.execute(sql)
@@ -869,7 +867,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
         
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getMediasWithTag request with tag_id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = ("SELECT object_id FROM public.taggings WHERE tag_id = %d"
                    % request.id)
@@ -891,7 +889,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
     
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received getMediaTags request with media_id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = ("SELECT tag_id FROM public.taggings WHERE object_id = %d"
                    % request.id)
@@ -913,7 +911,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
     
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received createTagging request with media_id=%d and tag_id=%d" % (thread_id, request.mediaId, request.tagId))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             # Check for existence
             sql = ("SELECT * FROM public.taggings WHERE object_id = %d AND tag_id = %d"
@@ -945,7 +943,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
     # Create multiple taggings in a row, using batches of INSERT queries
     # Returns the amount added at each batch addition (similiar behaviour as in createMediaStream)
 
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         request_counter = 0
         sql = "INSERT INTO public.taggings (object_id, tag_id) VALUES "
         data = ()
@@ -986,7 +984,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
         
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getHierarchies request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.hierarchies"
             if request.tagSetId > 0:
@@ -1016,7 +1014,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received getHierarchy request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = """SELECT * FROM public.hierarchies WHERE id=%d""" % request.id
             cursor.execute(sql)
@@ -1043,7 +1041,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received createHierarchy request with name = %s" % (thread_id, request.name))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             # Note: the pair (name, tagset_id) is unique
             sql = "SELECT * FROM public.hierarchies WHERE name = %s AND tagset_id = %s"
@@ -1078,7 +1076,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received getNodes request" % (thread_id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT * FROM public.nodes"
             # Reflexion: a node is a tag reference in a hierarchy, 
@@ -1117,7 +1115,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received getNode request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = """SELECT * FROM public.nodes WHERE id=%d""" % request.id
             cursor.execute(sql)
@@ -1142,7 +1140,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
     def createNode(self, request: rpc_objects.CreateNodeRequest, context) -> rpc_objects.NodeResponse :
         # thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         # print("[%s] Received creatNode request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         
         if request.parentNodeId:
         # We're not trying to add a root node
@@ -1231,7 +1229,7 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received deleteNode request with id=%d" % (thread_id, request.id))
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             sql = "SELECT parentnode_id FROM public.nodes WHERE id = %d" % request.id
             cursor.execute(sql)
@@ -1272,7 +1270,7 @@ UPDATE public.nodes SET parentnode_id = NULL WHERE id = %d;""" % (singlechild_id
 
         thread_id = "%s-%d" % (random.choice(WORDS), random.randint(1000,9999))
         print("[%s] Received ResetDatabase request" % thread_id)
-        cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = self.conn.cursor()
         try:
             cursor.execute(open("../ddl.sql", "r").read())
             print("[%s] -> SUCCESS: DB has been reset" % thread_id)

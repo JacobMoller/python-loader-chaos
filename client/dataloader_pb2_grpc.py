@@ -331,8 +331,7 @@ class DataLoaderServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def resetDatabase(self, request, context):
-        """Other
-        """
+        """Other"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
