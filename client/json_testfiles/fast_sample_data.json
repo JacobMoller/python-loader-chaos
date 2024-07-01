@@ -1,0 +1,182 @@
+{
+    "hierarchies": [],
+    "tagsets": [
+        {
+            "id": 1,
+            "name": "track_name",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 1,
+                    "value": "Somebody That I Used To Know"
+                },
+                {
+                    "id": 10,
+                    "value": "Rolling in the Deep"
+                },
+                {
+                    "id": 16,
+                    "value": "Radioactive"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "album_name",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 2,
+                    "value": "Making Mirrors"
+                },
+                {
+                    "id": 11,
+                    "value": "21"
+                },
+                {
+                    "id": 17,
+                    "value": "Night Visions"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "name": "artist_infos",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 3,
+                    "value": "Gotye, Kimbra"
+                },
+                {
+                    "id": 12,
+                    "value": "Adele"
+                },
+                {
+                    "id": 18,
+                    "value": "Imagine Dragons"
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "name": "track_duration",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 8,
+                    "value": "medium"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "name": "track_popularity",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 9,
+                    "value": "extrapopular"
+                },
+                {
+                    "id": 21,
+                    "value": "verypopular"
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "name": "emotion",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 4,
+                    "value": "happiness"
+                },
+                {
+                    "id": 13,
+                    "value": "anger"
+                }
+            ]
+        },
+        {
+            "id": 7,
+            "name": "genre",
+            "type": 1,
+            "tags": [
+                {
+                    "id": 5,
+                    "value": "pop"
+                },
+                {
+                    "id": 6,
+                    "value": "indiepop"
+                },
+                {
+                    "id": 7,
+                    "value": "rock"
+                },
+                {
+                    "id": 14,
+                    "value": "soul"
+                },
+                {
+                    "id": 15,
+                    "value": "singersongwriter"
+                },
+                {
+                    "id": 19,
+                    "value": "indierock"
+                },
+                {
+                    "id": 20,
+                    "value": "alternativerock"
+                }
+            ]
+        }
+    ],
+    "medias": [
+        {
+            "path": "https://open.spotify.com/track/4wCmqSrbyCgxEXROQE6vtV",
+            "tags": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9
+            ]
+        },
+        {
+            "path": "https://open.spotify.com/track/1c8gk2PeTE04A1pIDH9YMk",
+            "tags": [
+                5,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+            ]
+        },
+        {
+            "path": "https://open.spotify.com/track/4G8gkOterJn0Ywt6uhqbhp",
+            "tags": [
+                4,
+                7,
+                8,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21
+            ]
+        }
+    ]
+}

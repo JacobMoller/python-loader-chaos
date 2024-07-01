@@ -198,49 +198,57 @@ class LoaderClient:
     def add_tags(self, tagset_id: int, tagtype_id: int, tags:list[dict]):
         def tags_iterator():
             for tag_item in tags:
-                match tagtype_id:
-                    case 1:
-                        yield rpc_objects.CreateTagStreamRequest(
-                            tagId=tag_item.get('id'),
-                            tagSetId=tagset_id,
-                            tagTypeId=tagtype_id,
-                            alphanumerical = rpc_objects.AlphanumericalValue(value=str(tag_item.get('value')))
-                        )
-                    case 2:
-                        yield rpc_objects.CreateTagStreamRequest(
-                            tagId=tag_item.get('id'),
-                            tagSetId=tagset_id,
-                            tagTypeId=tagtype_id,
-                            timestamp = rpc_objects.TimeStampValue(value=str(tag_item.get('value')))
-                        )
-                    case 3:
-                        yield rpc_objects.CreateTagStreamRequest(
-                            tagId=tag_item.get('id'),
-                            tagSetId=tagset_id,
-                            tagTypeId=tagtype_id,
-                            time = rpc_objects.TimeValue(value=str(tag_item.get('value')))
-                        )
-                    case 4:
-                        yield rpc_objects.CreateTagStreamRequest(
-                            tagId=tag_item.get('id'),
-                            tagSetId=tagset_id,
-                            tagTypeId=tagtype_id,
-                            date = rpc_objects.DateValue(value=str(tag_item.get('value')))
-                        )
-                    case 5:
-                        yield rpc_objects.CreateTagStreamRequest(
-                            tagId=tag_item.get('id'),
-                            tagSetId=tagset_id,
-                            tagTypeId=tagtype_id,
-                            numerical = rpc_objects.NumericalValue(value=tag_item.get('value'))
-                        )
-                    case _:
-                        return "Error: wrong type %d" % tagtype_id
-                    
+                request = None
+                try:
+                    match tagtype_id:
+                        case 1:
+                                request = rpc_objects.CreateTagStreamRequest(
+                                    tagId=tag_item.get('id'),
+                                    tagSetId=tagset_id,
+                                    tagTypeId=tagtype_id,
+                                    alphanumerical = rpc_objects.AlphanumericalValue(value=str(tag_item.get('value')))
+                                )
+                        case 2:
+                            request = rpc_objects.CreateTagStreamRequest(
+                                tagId=tag_item.get('id'),
+                                tagSetId=tagset_id,
+                                tagTypeId=tagtype_id,
+                                timestamp = rpc_objects.TimeStampValue(value=str(tag_item.get('value')))
+                            )
+                        case 3:
+                            request = rpc_objects.CreateTagStreamRequest(
+                                tagId=tag_item.get('id'),
+                                tagSetId=tagset_id,
+                                tagTypeId=tagtype_id,
+                                time = rpc_objects.TimeValue(value=str(tag_item.get('value')))
+                            )
+                        case 4:
+                            request = rpc_objects.CreateTagStreamRequest(
+                                tagId=tag_item.get('id'),
+                                tagSetId=tagset_id,
+                                tagTypeId=tagtype_id,
+                                date = rpc_objects.DateValue(value=str(tag_item.get('value')))
+                            )
+                        case 5:
+                            request = rpc_objects.CreateTagStreamRequest(
+                                tagId=tag_item.get('id'),
+                                tagSetId=tagset_id,
+                                tagTypeId=tagtype_id,
+                                numerical = rpc_objects.NumericalValue(value=tag_item.get('value'))
+                            )
+                        case _:
+                            raise "Error: wrong type %d" % tagtype_id
+                except Exception as e:
+                    print(f"Error: {e}")
+                yield request
         response_iterator = self.grpc_stub.createTagStream(tags_iterator())
-        for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.id_map
+        try:
+            for response in response_iterator:
+                yield response.error_message if response.error_message \
+                else response.id_map
+        except Exception as e:
+            print(f"Tagset: {tagset_id}, TagType: {tagtype_id}")
+            print(f"Error: {e}")
     
     def get_tag(self, tag_id: int):
         request = rpc_objects.IdRequest(id=tag_id)

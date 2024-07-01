@@ -866,7 +866,7 @@ func (s *DataLoaderServer) GetMediasWithTag(ctx context.Context, request *pb.IdR
 	}
 
 	if len(media_ids) == 0 {
-		return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("No results were fetched")}, nil
+		return &pb.RepeatedIdResponse{ErrorMessage: "No results were fetched"}, nil
 	}
 	return &pb.RepeatedIdResponse{Ids: media_ids}, nil
 }
@@ -893,7 +893,7 @@ func (s *DataLoaderServer) GetMediaTags(ctx context.Context, request *pb.IdReque
 	}
 
 	if len(tag_ids) == 0 {
-		return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("No results were fetched")}, nil
+		return &pb.RepeatedIdResponse{ErrorMessage: "No results were fetched"}, nil
 	}
 	return &pb.RepeatedIdResponse{Ids: tag_ids}, nil
 }

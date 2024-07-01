@@ -19,7 +19,7 @@ class DataLoader(DataLoaderServicer):
     def __init__(self) -> None:
         super().__init__()
         self.conn = psycopg.connect(
-            conninfo="dbname=VBS24 user=postgres password=root host=localhost port=5432",
+            conninfo="dbname=spotifytest user=postgres password=root host=localhost port=5432",
             row_factory=dict_row, # Retreive the columns by their names
             autocommit=True
         )
@@ -717,9 +717,10 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
     # Create multiple tags using batches of INSERT commands
     # Returns a map of the given IDs to the created IDs (used for JSON imports)
 
+        print("createTagStream")
         tag_counter = 0
-        tag_sql = "INSERT INTO public.tags (tagtype_id, tagset_id) VALUES "
-        tag_data = ()
+        tag_sql = "INSERT INTO public.tags (id, tagtype_id, tagset_id) VALUES (%s, %s, %s) RETURNING *;"
+        tag_data = []
         tag_values = {}
         rownum_to_tagid_map = {}
 
@@ -738,44 +739,45 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
                     tag_values[tag_counter] = req.numerical.value
                     
             rownum_to_tagid_map[tag_counter] = req.tagId
-            tag_sql += "(%s, %s)," 
-            tag_data += (
+            # tag_sql += "(%s, %s, %s)," 
+            tag_data.append([
+                req.tagId,
                 req.tagTypeId,
                 req.tagSetId
-            )
+            ])
             tag_counter += 1
 
             # When we reach the max batch size, we execute the query and proceed to add to the 
             # different sub-tables of tags.
             if tag_counter == BATCH_SIZE :
-                tag_sql = tag_sql[:-1] + " RETURNING *;"
+                # tag_sql = tag_sql[:-1] + " RETURNING *;"
                 id_to_realid_map = {}
                 try:
-                    cursor.execute(tag_sql, tag_data)
+                    cursor.executemany(tag_sql, tag_data, returning=True)
                     i = 0
                     sql = ""
-                    data = ()
-                    for inserted_tag in cursor.fetchall():
+                    data = []
+                    while True:
+                        inserted_tag = cursor.fetchone()
                         tag_id = inserted_tag['id']
                         id_to_realid_map[rownum_to_tagid_map[i]] = tag_id
                         match inserted_tag['tagtype_id']:
                             case 1:
                                 sql += "INSERT INTO public.alphanumerical_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                                data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
                             case 2:
                                 sql += "INSERT INTO public.timestamp_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                                data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
                             case 3:
                                 sql += "INSERT INTO public.time_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                                data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
                             case 4:
                                 sql += "INSERT INTO public.date_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                                data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
                             case 5:
                                 sql += "INSERT INTO public.numerical_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                                data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
+                        data.append([tag_id, tag_values[i], inserted_tag['tagset_id']])
                         i += 1
-                    cursor.execute(sql, data)
+                        if not cursor.nextset():
+                            break
+
+                    cursor.executemany(sql, data)
                     yield rpc_objects.CreateTagStreamResponse(
                         id_map=id_to_realid_map
                     )
@@ -794,35 +796,34 @@ LEFT JOIN """ % (tagset_id, tagtype_id)
 
         # Add the remaining tags
         if tag_counter > 0:
-            tag_sql = tag_sql[:-1] + " RETURNING *;"
+            # tag_sql = tag_sql[:-1] + " RETURNING *;"
             id_to_realid_map = {}
             try:
-                cursor.execute(tag_sql, tag_data)
+                cursor.executemany(tag_sql, tag_data, returning=True)
                 i = 0
                 sql = ""
-                data = ()
-                for inserted_tag in cursor.fetchall():
+                data = []
+                while True:
+                    inserted_tag = cursor.fetchone()
                     tag_id = inserted_tag['id']
                     id_to_realid_map[rownum_to_tagid_map[i]] = tag_id
                     match inserted_tag['tagtype_id']:
                         case 1:
-                            sql += "INSERT INTO public.alphanumerical_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                            data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
+                            sql = "INSERT INTO public.alphanumerical_tags (id, name, tagset_id) VALUES (%s,%s,%s);"
                         case 2:
-                            sql += "INSERT INTO public.timestamp_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                            data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
+                            sql = "INSERT INTO public.timestamp_tags (id, name, tagset_id) VALUES (%s,%s,%s);"
                         case 3:
-                            sql += "INSERT INTO public.time_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                            data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
+                            sql = "INSERT INTO public.time_tags (id, name, tagset_id) VALUES (%s,%s,%s);"
                         case 4:
-                            sql += "INSERT INTO public.date_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                            data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
+                            sql = "INSERT INTO public.date_tags (id, name, tagset_id) VALUES (%s,%s,%s);"
                         case 5:
-                            sql += "INSERT INTO public.numerical_tags (id, name, tagset_id) VALUES (%s,%s,%s);\n"
-                            data += (tag_id, tag_values[i], inserted_tag['tagset_id'],)
+                            sql += "INSERT INTO public.numerical_tags (id, name, tagset_id) VALUES (%s,%s,%s);"
+                    data.append([tag_id, tag_values[i], inserted_tag['tagset_id']])
                     i += 1
+                    if not cursor.nextset():
+                        break
 
-                cursor.execute(sql, data)
+                cursor.executemany(sql, data)
                 yield rpc_objects.CreateTagStreamResponse(
                         id_map=id_to_realid_map
                     )
@@ -1283,7 +1284,7 @@ UPDATE public.nodes SET parentnode_id = NULL WHERE id = %d;""" % (singlechild_id
 
 
 def serve() -> None:
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     add_DataLoaderServicer_to_server(DataLoader(), server)
     listen_addr = "[::]:50051"
     server.add_insecure_port(listen_addr)

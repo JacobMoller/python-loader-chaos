@@ -9,3 +9,6 @@ __pycache__
 testfiles
 testfiles/*
 lsc22.json
+
+server/vbs_loader
+client/python-loader-client

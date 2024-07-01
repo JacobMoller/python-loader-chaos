@@ -12,5 +12,6 @@ data_loader_cli.egg-info/top_level.txt
 filemgmt/__init__.py
 filemgmt/csv.py
 filemgmt/filehandler.py
+filemgmt/json.py
 filemgmt/json_fast.py
 filemgmt/json_hr.py
