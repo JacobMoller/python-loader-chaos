@@ -40,8 +40,9 @@ class JSONHandler(FileHandler):
                 medias = data.get('medias', [])
                 for media_item in medias:
                     media_path = media_item.get('path')
+                    thumbnail_path = media_item.get('thumbnail')
                     if media_path:
-                        media_response = self.client.add_file(media_path)
+                        media_response = self.client.add_file(media_path, thumbnail_path)
                         tags = media_item.get('tags', [])
                         for tag_item in tags:
                             (tagset_id, tagtype_id) = id_map[tag_item.get('tagset')]

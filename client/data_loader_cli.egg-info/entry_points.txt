@@ -1,2 +1,4 @@
-[console_scripts]
-loader = cli:cli
+
+        [console_scripts]
+        loader=cli:cli
+    

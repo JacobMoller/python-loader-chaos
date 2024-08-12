@@ -1,6 +1,10 @@
 Metadata-Version: 2.1
-Name: data-loader_cli
+Name: data-loader-cli
 Version: 0.1
-Requires-Dist: click
-Requires-Dist: grpcio
-Requires-Dist: tqdm
+Summary: UNKNOWN
+Home-page: UNKNOWN
+License: UNKNOWN
+Platform: UNKNOWN
+
+UNKNOWN
+

@@ -19,7 +19,7 @@ class DataLoader(DataLoaderServicer):
     def __init__(self) -> None:
         super().__init__()
         self.conn = psycopg.connect(
-            conninfo="dbname=spotifytest user=postgres password=root host=localhost port=5432",
+            conninfo="dbname=SpotifyDataBase user=postgres password=root host=localhost port=5432",
             row_factory=dict_row, # Retreive the columns by their names
             autocommit=True
         )

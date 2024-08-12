@@ -82,7 +82,8 @@ class FastJSONHandler(FileHandler):
                     # Processing of a single media by a single thread
                         thread_client = grpc_client.LoaderClient()
                         media_path = media_item.get('path')
-                        media_response = thread_client.add_file(media_path)
+                        thumbnail_path = media_item.get('thumbnail')
+                        media_response = thread_client.add_file(media_path, thumbnail_path)
                         if type(media_response) is str:
                             return f"Couldn't add media {media_item}: {media_response}"
                         tags = []

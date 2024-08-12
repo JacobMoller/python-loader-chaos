@@ -72,7 +72,7 @@ class LoaderClient:
         else : yield 'Info: %d files were found in the directory.' % file_count
 
 
-    def add_file(self, path: str):
+    def add_file(self, path: str, thumbnail_path: str = None):
     # Add a specific file to the database.
         file_path = path #os.path.abspath(path)
         if path.lower().endswith(('jpg', 'png', 'bmp')):
@@ -86,7 +86,7 @@ class LoaderClient:
         request = rpc_objects.CreateMediaRequest(media={
             "file_uri": file_path,
             "file_type": file_type,
-            "thumbnail_uri": file_path
+            "thumbnail_uri": thumbnail_path if thumbnail_path else file_path
             })
         
         response = self.grpc_stub.createMedia(request)
