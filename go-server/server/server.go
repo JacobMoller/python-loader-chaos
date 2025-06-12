@@ -82,12 +82,14 @@ func (s *DataLoaderServer) GetMedias(request *pb.GetMediasRequest, stream pb.Dat
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		response := &pb.MediaResponse{
-			Media: &pb.Media{
-				Id:           id,
-				FileUri:      fileURI,
-				FileType:     fileType,
-				ThumbnailUri: thumbnailURI,
+		response := &pb.StreamingMediaResponse{
+			Message: &pb.StreamingMediaResponse_Media{
+				Media: &pb.Media{
+					Id:           id,
+					FileUri:      fileURI,
+					FileType:     fileType,
+					ThumbnailUri: thumbnailURI,
+				},
 			},
 		}
 
@@ -102,7 +104,17 @@ func (s *DataLoaderServer) GetMedias(request *pb.GetMediasRequest, stream pb.Dat
 	// }
 
 	if rowcount == 0 {
-		response := &pb.MediaResponse{ErrorMessage: "No results were fetched"}
+		var s *status.Status
+		if request.FileType > 0 {
+			s = status.Newf(codes.NotFound, "No results were fetched for file type %d", request.FileType)
+		} else {
+			s = status.Newf(codes.NotFound, "No results were fetched")
+		}
+		response := &pb.StreamingMediaResponse{
+			Message: &pb.StreamingMediaResponse_Error{
+				Error: s.Proto(),
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -118,9 +130,9 @@ func (s *DataLoaderServer) GetMediaById(ctx context.Context, request *pb.IdReque
 	err := row.Scan(&media.Id, &media.FileUri, &media.FileType, &media.ThumbnailUri)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.MediaResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No media found with ID %d", request.Id)
 		}
-		return &pb.MediaResponse{ErrorMessage: fmt.Sprintf("Failed to fetch media from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch media from database: %s", err)
 	}
 
 	return &pb.MediaResponse{
@@ -135,9 +147,9 @@ func (s *DataLoaderServer) GetMediaByURI(ctx context.Context, request *pb.GetMed
 	err := row.Scan(&media.Id, &media.FileUri, &media.FileType, &media.ThumbnailUri)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.MediaResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No media found with URI %s", request.FileUri)
 		}
-		return &pb.MediaResponse{ErrorMessage: fmt.Sprintf("Failed to fetch media from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch media from database: %s", err)
 	}
 
 	return &pb.MediaResponse{
@@ -151,7 +163,7 @@ func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.CreateMe
 	var existingMedia pb.Media
 	err := row.Scan(&existingMedia.Id, &existingMedia.FileUri, &existingMedia.FileType, &existingMedia.ThumbnailUri)
 	if err != nil && err != sql.ErrNoRows {
-		return &pb.MediaResponse{ErrorMessage: fmt.Sprintf("Failed to fetch media from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch media from database: %s", err)
 	}
 
 	if err == nil {
@@ -161,9 +173,7 @@ func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.CreateMe
 			}, nil
 		}
 
-		return &pb.MediaResponse{
-			ErrorMessage: fmt.Sprintf("Error: Media URI '%s' already exists with a different type or thumbnail_uri", request.Media.FileUri),
-		}, nil
+		return nil, status.Errorf(codes.AlreadyExists, "Media URI '%s' already exists with a different type or thumbnail_uri", request.Media.FileUri)
 	}
 
 	// Insert the new media into the database
@@ -173,7 +183,7 @@ func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.CreateMe
 	row = s.db.QueryRow(queryString, request.Media.FileUri, request.Media.FileType, request.Media.ThumbnailUri)
 	err = row.Scan(&insertedMedia.Id, &insertedMedia.FileUri, &insertedMedia.FileType, &insertedMedia.ThumbnailUri)
 	if err != nil {
-		return &pb.MediaResponse{ErrorMessage: fmt.Sprintf("Failed to insert media into database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to insert media into database: %s", err)
 	}
 
 	return &pb.MediaResponse{
@@ -181,7 +191,7 @@ func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.CreateMe
 	}, nil
 }
 
-func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediasServer) error {
+func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediaStreamServer) error {
 	requestCounter, dataCounter := 0, 1
 	var queryString string
 	var data []interface{}
@@ -216,14 +226,18 @@ func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediasServer)
 			if err != nil {
 				log.Printf("Error: %s", err)
 				err = stream.Send(&pb.CreateMediaStreamResponse{
-					ErrorMessage: fmt.Sprintf("Error: %s", err),
+					Message: &pb.CreateMediaStreamResponse_Error{
+						Error: status.Newf(codes.Internal, err.Error()).Proto(),
+					},
 				})
 				if err != nil {
 					return fmt.Errorf("failed to send response: %w", err)
 				}
 			} else {
 				err = stream.Send(&pb.CreateMediaStreamResponse{
-					Count: int64(requestCounter),
+					Message: &pb.CreateMediaStreamResponse_Count{
+						Count: int64(requestCounter),
+					},
 				})
 				if err != nil {
 					return fmt.Errorf("failed to send response: %w", err)
@@ -238,14 +252,18 @@ func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediasServer)
 		if err != nil {
 			log.Printf("Error: %s", err)
 			err = stream.Send(&pb.CreateMediaStreamResponse{
-				ErrorMessage: fmt.Sprintf("Error: %s", err),
+				Message: &pb.CreateMediaStreamResponse_Error{
+					Error: status.Newf(codes.Internal, err.Error()).Proto(),
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to send response: %w", err)
 			}
 		} else {
 			err = stream.Send(&pb.CreateMediaStreamResponse{
-				Count: int64(requestCounter),
+				Message: &pb.CreateMediaStreamResponse_Count{
+					Count: int64(requestCounter),
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to send response: %w", err)
@@ -260,18 +278,18 @@ func (s *DataLoaderServer) DeleteMedia(ctx context.Context, request *pb.IdReques
 
 	result, err := s.db.Exec(queryString, request.Id)
 	if err != nil {
-		return &pb.StatusResponse{ErrorMessage: fmt.Sprintf("Failed to execute delete query: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to execute delete query: %s", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return &pb.StatusResponse{ErrorMessage: fmt.Sprintf("Failed to get rows affected: %s", err.Error())}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to get rows affected: %s", err)
 	}
 
 	if rowsAffected > 0 {
 		response := &pb.StatusResponse{}
 		return response, nil
 	} else {
-		return &pb.StatusResponse{ErrorMessage: "Element not found"}, nil
+		return nil, status.Errorf(codes.NotFound, "No media found with ID %d", request.Id)
 	}
 }
 
@@ -318,7 +336,17 @@ func (s *DataLoaderServer) GetTagSets(request *pb.GetTagSetsRequest, stream pb.D
 	}
 
 	if rowcount == 0 {
-		response := &pb.TagSetResponse{ErrorMessage: "No results were fetched"}
+		var s *status.Status
+		if request.TagTypeId > 0 {
+			s = status.Newf(codes.NotFound, "No tagsets found with tag type ID %d", request.TagTypeId)
+		} else {
+			s = status.Newf(codes.NotFound, "No tagsets found")
+		}
+		response := &pb.StreamingTagSetResponse{
+			Message: &pb.StreamingTagSetResponse_Error{
+				Error: s.Proto(),
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -332,9 +360,9 @@ func (s *DataLoaderServer) GetTagSetById(ctx context.Context, request *pb.IdRequ
 	err := row.Scan(&tagset.Id, &tagset.Name, &tagset.TagTypeId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.TagSetResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No tagset found with ID %d", request.Id)
 		}
-		return &pb.TagSetResponse{ErrorMessage: fmt.Sprintf("Failed to fetch tagset from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch tagset from database: %s", err)
 	}
 
 	return &pb.TagSetResponse{
@@ -349,9 +377,9 @@ func (s *DataLoaderServer) GetTagSetByName(ctx context.Context, request *pb.GetT
 	err := row.Scan(&tagset.Id, &tagset.Name, &tagset.TagTypeId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.TagSetResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No tagset found with name %s", request.Name)
 		}
-		return &pb.TagSetResponse{ErrorMessage: fmt.Sprintf("Failed to fetch tagset from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch tagset from database: %s", err)
 	}
 
 	return &pb.TagSetResponse{
@@ -364,7 +392,7 @@ func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateT
 	var existingTagset pb.TagSet
 	err := row.Scan(&existingTagset.Id, &existingTagset.Name, &existingTagset.TagTypeId)
 	if err != nil && err != sql.ErrNoRows {
-		return &pb.TagSetResponse{ErrorMessage: fmt.Sprintf("Failed to fetch tagset from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch tagset from database: %s", err)
 	}
 
 	if err == nil {
@@ -374,9 +402,7 @@ func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateT
 			}, nil
 		}
 
-		return &pb.TagSetResponse{
-			ErrorMessage: fmt.Sprintf("Error: Tagset name '%s' already exists with a different type", request.Name),
-		}, nil
+		return nil, status.Errorf(codes.AlreadyExists, "Tagset name '%s' already exists with a different type", request.Name)
 	}
 
 	// Insert the new media into the database
@@ -386,7 +412,7 @@ func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateT
 	var insertedTagset pb.TagSet
 	err = row.Scan(&insertedTagset.Id, &insertedTagset.Name, &insertedTagset.TagTypeId)
 	if err != nil {
-		return &pb.TagSetResponse{ErrorMessage: fmt.Sprintf("Failed to insert tagset into database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to insert tagset into database: %s", err)
 	}
 
 	return &pb.TagSetResponse{
@@ -444,75 +470,109 @@ LEFT JOIN
 		if err := rows.Scan(&id, &tagtype_id, &tagset_id, &text_value, &timestamp_value, &time_value, &date_value, &num_value); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-		response := &pb.TagResponse{}
+		response := &pb.StreamingTagResponse{}
 		switch tagtype_id {
 		case 1:
 			if text_value.Valid {
-				response = &pb.TagResponse{
-					Tag: &pb.Tag{
-						Id:        id,
-						TagSetId:  tagset_id,
-						TagTypeId: tagtype_id,
-						Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: text_value.String}},
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Tag{
+						Tag: &pb.Tag{
+							Id:        id,
+							TagSetId:  tagset_id,
+							TagTypeId: tagtype_id,
+							Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: text_value.String}},
+						},
 					},
 				}
 			} else {
-				response = &pb.TagResponse{ErrorMessage: fmt.Sprintf("Error: Null value for tag id=%d", id)}
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Error{
+						Error: status.Newf(codes.Internal, "Null value for tag id=%d", id).Proto(),
+					},
+				}
 			}
 		case 2:
 			if timestamp_value.Valid {
-				response = &pb.TagResponse{
-					Tag: &pb.Tag{
-						Id:        id,
-						TagSetId:  tagset_id,
-						TagTypeId: tagtype_id,
-						Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: timestamp_value.String}},
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Tag{
+						Tag: &pb.Tag{
+							Id:        id,
+							TagSetId:  tagset_id,
+							TagTypeId: tagtype_id,
+							Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: timestamp_value.String}},
+						},
 					},
 				}
 			} else {
-				response = &pb.TagResponse{ErrorMessage: fmt.Sprintf("Error: Null value for tag id=%d", id)}
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Error{
+						Error: status.Newf(codes.Internal, "Null value for tag id=%d", id).Proto(),
+					},
+				}
 			}
 		case 3:
 			if time_value.Valid {
-				response = &pb.TagResponse{
-					Tag: &pb.Tag{
-						Id:        id,
-						TagSetId:  tagset_id,
-						TagTypeId: tagtype_id,
-						Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: time_value.String}},
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Tag{
+						Tag: &pb.Tag{
+							Id:        id,
+							TagSetId:  tagset_id,
+							TagTypeId: tagtype_id,
+							Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: time_value.String}},
+						},
 					},
 				}
 			} else {
-				response = &pb.TagResponse{ErrorMessage: fmt.Sprintf("Error: Null value for tag id=%d", id)}
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Error{
+						Error: status.Newf(codes.Internal, "Null value for tag id=%d", id).Proto(),
+					},
+				}
 			}
 		case 4:
 			if date_value.Valid {
-				response = &pb.TagResponse{
-					Tag: &pb.Tag{
-						Id:        id,
-						TagSetId:  tagset_id,
-						TagTypeId: tagtype_id,
-						Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: date_value.String}},
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Tag{
+						Tag: &pb.Tag{
+							Id:        id,
+							TagSetId:  tagset_id,
+							TagTypeId: tagtype_id,
+							Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: date_value.String}},
+						},
 					},
 				}
 			} else {
-				response = &pb.TagResponse{ErrorMessage: fmt.Sprintf("Error: Null value for tag id=%d", id)}
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Error{
+						Error: status.Newf(codes.Internal, "Null value for tag id=%d", id).Proto(),
+					},
+				}
 			}
 		case 5:
 			if num_value.Valid {
-				response = &pb.TagResponse{
-					Tag: &pb.Tag{
-						Id:        id,
-						TagSetId:  tagset_id,
-						TagTypeId: tagtype_id,
-						Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: num_value.Int64}},
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Tag{
+						Tag: &pb.Tag{
+							Id:        id,
+							TagSetId:  tagset_id,
+							TagTypeId: tagtype_id,
+							Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: num_value.Int64}},
+						},
 					},
 				}
 			} else {
-				response = &pb.TagResponse{ErrorMessage: fmt.Sprintf("Error: Null value for tag id=%d", id)}
+				response = &pb.StreamingTagResponse{
+					Message: &pb.StreamingTagResponse_Error{
+						Error: status.Newf(codes.Internal, "Null value for tag id=%d", id).Proto(),
+					},
+				}
 			}
 		default:
-			response = &pb.TagResponse{ErrorMessage: fmt.Sprintf("Error: Incorrect type for tag id=%d", id)}
+			response = &pb.StreamingTagResponse{
+				Message: &pb.StreamingTagResponse_Error{
+					Error: status.Newf(codes.Internal, "Incorrect type for tag id=%d", id).Proto(),
+				},
+			}
 		}
 
 		if err := stream.Send(response); err != nil {
@@ -526,7 +586,22 @@ LEFT JOIN
 	}
 
 	if rowcount == 0 {
-		response := &pb.TagResponse{ErrorMessage: "No results were fetched"}
+		var s *status.Status
+		if request.TagTypeId > 0 && request.TagSetId > 0 {
+			s = status.Newf(codes.NotFound, "No tags found with tag type ID %d and tag set ID %d", request.TagTypeId, request.TagSetId)
+		} else if request.TagTypeId > 0 {
+			s = status.Newf(codes.NotFound, "No tags found with tag type ID %d", request.TagTypeId)
+		} else if request.TagSetId > 0 {
+			s = status.Newf(codes.NotFound, "No tags found with tag set ID %d", request.TagSetId)
+		} else {
+			s = status.Newf(codes.NotFound, "No tags found")
+		}
+
+		response := &pb.StreamingTagResponse{
+			Message: &pb.StreamingTagResponse_Error{
+				Error: s.Proto(),
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -559,9 +634,9 @@ LEFT JOIN
 	err := row.Scan(&tag_id, &tagtype_id, &tagset_id, &value)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.TagResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No tag found with ID %d", request.Id)
 		}
-		return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to fetch tag from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch tag from database: %s", err)
 	}
 
 	switch tagtype_id {
@@ -604,7 +679,7 @@ LEFT JOIN
 	case 5:
 		num_value, err := strconv.Atoi(value)
 		if err != nil {
-			return &pb.TagResponse{ErrorMessage: "Error converting tag value to integer."}, nil
+			return nil, status.Errorf(codes.Internal, "Error converting tag value to integer: %s", err)
 		}
 		return &pb.TagResponse{
 			Tag: &pb.Tag{
@@ -615,7 +690,7 @@ LEFT JOIN
 			},
 		}, nil
 	}
-	return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Invalid tag type was fetched: %s\nCheck database integrity.", err)}, nil
+	return nil, status.Errorf(codes.DataLoss, "Invalid tag type was fetched: %s\nCheck database integrity.", err)
 }
 
 func (s *DataLoaderServer) CreateTag(ctx context.Context, request *pb.CreateTagRequest) (*pb.TagResponse, error) {
@@ -643,7 +718,7 @@ FROM
 		queryString += "public.numerical_tags a ON t.id = a.id WHERE a.name = $3"
 		data = append(data, request.GetNumerical().Value)
 	default:
-		return &pb.TagResponse{ErrorMessage: "invalid tag type: range is 1-5"}, nil
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid tag type provided: range is 1-5")
 	}
 
 	row := s.db.QueryRow(queryString, data...)
@@ -651,7 +726,7 @@ FROM
 	var value string
 	err := row.Scan(&tag_id, &tagtype_id, &tagset_id, &value)
 	if err != nil && err != sql.ErrNoRows {
-		return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to fetch tag from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch tag from database: %s", err)
 	}
 	if err == nil {
 		switch tagtype_id {
@@ -694,7 +769,7 @@ FROM
 		case 5:
 			num_value, err := strconv.Atoi(value)
 			if err != nil {
-				return &pb.TagResponse{ErrorMessage: "Error converting tag value to integer."}, nil
+				return nil, status.Errorf(codes.Internal, "Error converting tag value to integer: %s", err)
 			}
 			return &pb.TagResponse{
 				Tag: &pb.Tag{
@@ -713,7 +788,7 @@ FROM
 	row = s.db.QueryRow(queryString, request.TagTypeId, request.TagSetId)
 	err = row.Scan(&insertedId)
 	if err != nil {
-		return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to insert tag into database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 	}
 
 	queryString = "INSERT INTO public."
@@ -724,7 +799,7 @@ FROM
 		row = s.db.QueryRow(queryString, insertedId, request.GetAlphanumerical().Value, request.TagSetId)
 		err = row.Scan(&value)
 		if err != nil {
-			return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to insert tag into database: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
 		return &pb.TagResponse{
 			Tag: &pb.Tag{
@@ -740,7 +815,7 @@ FROM
 		row = s.db.QueryRow(queryString, insertedId, request.GetTimestamp().Value, request.TagSetId)
 		err = row.Scan(&value)
 		if err != nil {
-			return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to insert tag into database: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
 		return &pb.TagResponse{
 			Tag: &pb.Tag{
@@ -756,7 +831,7 @@ FROM
 		row = s.db.QueryRow(queryString, insertedId, request.GetTime().Value, request.TagSetId)
 		err = row.Scan(&value)
 		if err != nil {
-			return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to insert tag into database: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
 		return &pb.TagResponse{
 			Tag: &pb.Tag{
@@ -772,7 +847,7 @@ FROM
 		row = s.db.QueryRow(queryString, insertedId, request.GetDate().Value, request.TagSetId)
 		err = row.Scan(&value)
 		if err != nil {
-			return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to insert tag into database: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
 		return &pb.TagResponse{
 			Tag: &pb.Tag{
@@ -788,7 +863,7 @@ FROM
 		row = s.db.QueryRow(queryString, insertedId, request.GetNumerical().Value, request.TagSetId)
 		err = row.Scan(&value)
 		if err != nil {
-			return &pb.TagResponse{ErrorMessage: fmt.Sprintf("Failed to insert tag into database: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
 		return &pb.TagResponse{
 			Tag: &pb.Tag{
@@ -799,7 +874,7 @@ FROM
 			},
 		}, nil
 	default:
-		return &pb.TagResponse{ErrorMessage: "Error: incorrect tag type was provided."}, nil
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid tag type provided: range is 1-5")
 	}
 }
 
@@ -819,10 +894,12 @@ func (s *DataLoaderServer) GetTaggings(request *pb.EmptyRequest, stream pb.DataL
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		response := &pb.TaggingResponse{
-			Tagging: &pb.Tagging{
-				MediaId: media_id,
-				TagId:   tag_id,
+		response := &pb.StreamingTaggingResponse{
+			Message: &pb.StreamingTaggingResponse_Tagging{
+				Tagging: &pb.Tagging{
+					MediaId: media_id,
+					TagId:   tag_id,
+				},
 			},
 		}
 		if err := stream.Send(response); err != nil {
@@ -836,7 +913,11 @@ func (s *DataLoaderServer) GetTaggings(request *pb.EmptyRequest, stream pb.DataL
 	}
 
 	if rowcount == 0 {
-		response := &pb.TaggingResponse{ErrorMessage: "No results were fetched"}
+		response := &pb.StreamingTaggingResponse{
+			Message: &pb.StreamingTaggingResponse_Error{
+				Error: status.Newf(codes.NotFound, "No taggings found").Proto(),
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -848,7 +929,7 @@ func (s *DataLoaderServer) GetMediasWithTag(ctx context.Context, request *pb.IdR
 	queryString := "SELECT object_id FROM public.taggings WHERE tag_id = $1"
 	rows, err := s.db.Query(queryString, request.Id)
 	if err != nil {
-		return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("Failed to execute query: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to execute query: %s", err)
 	}
 	defer rows.Close()
 
@@ -856,17 +937,17 @@ func (s *DataLoaderServer) GetMediasWithTag(ctx context.Context, request *pb.IdR
 	for rows.Next() {
 		var media_id int64
 		if err := rows.Scan(&media_id); err != nil {
-			return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("Failed to scan: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to scan: %s", err)
 		}
 		media_ids = append(media_ids, media_id)
 	}
 
 	if err := rows.Err(); err != nil {
-		return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("Row iteration error: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Row iteration error: %s", err)
 	}
 
 	if len(media_ids) == 0 {
-		return &pb.RepeatedIdResponse{ErrorMessage: "No results were fetched"}, nil
+		return nil, status.Errorf(codes.NotFound, "No media found with tag ID %d", request.Id)
 	}
 	return &pb.RepeatedIdResponse{Ids: media_ids}, nil
 }
@@ -875,7 +956,7 @@ func (s *DataLoaderServer) GetMediaTags(ctx context.Context, request *pb.IdReque
 	queryString := "SELECT tag_id FROM public.taggings WHERE object_id = $1"
 	rows, err := s.db.Query(queryString, request.Id)
 	if err != nil {
-		return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("Failed to execute query: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to execute query: %s", err)
 	}
 	defer rows.Close()
 
@@ -883,17 +964,17 @@ func (s *DataLoaderServer) GetMediaTags(ctx context.Context, request *pb.IdReque
 	for rows.Next() {
 		var tag_id int64
 		if err := rows.Scan(&tag_id); err != nil {
-			return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("Failed to scan: %s", err)}, nil
+			return nil, status.Errorf(codes.Internal, "Failed to scan: %s", err)
 		}
 		tag_ids = append(tag_ids, tag_id)
 	}
 
 	if err := rows.Err(); err != nil {
-		return &pb.RepeatedIdResponse{ErrorMessage: fmt.Sprintf("Row iteration error: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Row iteration error: %s", err)
 	}
 
 	if len(tag_ids) == 0 {
-		return &pb.RepeatedIdResponse{ErrorMessage: "No results were fetched"}, nil
+		return nil, status.Errorf(codes.NotFound, "No tags found for media ID %d", request.Id)
 	}
 	return &pb.RepeatedIdResponse{Ids: tag_ids}, nil
 }
@@ -902,7 +983,7 @@ func (s *DataLoaderServer) CreateTagging(ctx context.Context, request *pb.Create
 	var existingTagging pb.Tagging
 	err := row.Scan(&existingTagging.MediaId, &existingTagging.TagId)
 	if err != nil && err != sql.ErrNoRows {
-		return &pb.TaggingResponse{ErrorMessage: fmt.Sprintf("Failed to fetch tagging from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch tagging from database: %s", err)
 	}
 	// Tagging already exists
 	if err == nil {
@@ -918,7 +999,7 @@ func (s *DataLoaderServer) CreateTagging(ctx context.Context, request *pb.Create
 	var insertedTagging pb.Tagging
 	err = row.Scan(&insertedTagging.MediaId, &insertedTagging.TagId)
 	if err != nil {
-		return &pb.TaggingResponse{ErrorMessage: fmt.Sprintf("Failed to insert tagging into database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to insert tagging into database: %s", err)
 	}
 
 	return &pb.TaggingResponse{
@@ -962,7 +1043,9 @@ func (s *DataLoaderServer) CreateTaggingStream(stream pb.DataLoader_CreateTaggin
 			if err != nil {
 				log.Printf("Error: %s", err.Error())
 				if err = stream.Send(&pb.CreateTaggingStreamResponse{
-					ErrorMessage: fmt.Sprintf("Error: %s", err),
+					Message: &pb.CreateTaggingStreamResponse_Error{
+						Error: status.Newf(codes.Internal, "%s", err.Error()).Proto(),
+					},
 				}); err != nil {
 					return fmt.Errorf("failed to send response: %w", err)
 				}
@@ -970,7 +1053,9 @@ func (s *DataLoaderServer) CreateTaggingStream(stream pb.DataLoader_CreateTaggin
 			}
 			rowsAffected, _ := res.RowsAffected()
 			if err = stream.Send(&pb.CreateTaggingStreamResponse{
-				Count: int64(rowsAffected),
+				Message: &pb.CreateTaggingStreamResponse_Count{
+					Count: int64(rowsAffected),
+				},
 			}); err != nil {
 				return fmt.Errorf("failed to send response: %w", err)
 			}
@@ -983,7 +1068,9 @@ func (s *DataLoaderServer) CreateTaggingStream(stream pb.DataLoader_CreateTaggin
 		if err != nil {
 			log.Printf("Error: %s", err)
 			if err = stream.Send(&pb.CreateTaggingStreamResponse{
-				ErrorMessage: fmt.Sprintf("Error: %s", err),
+				Message: &pb.CreateTaggingStreamResponse_Error{
+					Error: status.Newf(codes.Internal, "%s", err.Error()).Proto(),
+				},
 			}); err != nil {
 				return fmt.Errorf("failed to send response: %w", err)
 			}
@@ -991,7 +1078,9 @@ func (s *DataLoaderServer) CreateTaggingStream(stream pb.DataLoader_CreateTaggin
 		}
 		rowsAffected, _ := res.RowsAffected()
 		if err = stream.Send(&pb.CreateTaggingStreamResponse{
-			Count: int64(rowsAffected),
+			Message: &pb.CreateTaggingStreamResponse_Count{
+				Count: int64(rowsAffected),
+			},
 		}); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -1027,8 +1116,10 @@ func (s *DataLoaderServer) GetHierarchies(request *pb.GetHierarchiesRequest, str
 		if nullableRootNodeID.Valid {
 			hierarchy.RootNodeId = nullableRootNodeID.Int64
 		}
-		response := &pb.HierarchyResponse{
-			Hierarchy: &hierarchy,
+		response := &pb.StreamingHierarchyResponse{
+			Message: &pb.StreamingHierarchyResponse_Hierarchy{
+				Hierarchy: &hierarchy,
+			},
 		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
@@ -1041,7 +1132,17 @@ func (s *DataLoaderServer) GetHierarchies(request *pb.GetHierarchiesRequest, str
 	}
 
 	if rowcount == 0 {
-		response := &pb.HierarchyResponse{ErrorMessage: "No results were fetched"}
+		var s *status.Status
+		if request.TagSetId > 0 {
+			s = status.Newf(codes.NotFound, "No hierarchies found with tag set ID %d", request.TagSetId)
+		} else {
+			s = status.Newf(codes.NotFound, "No hierarchies found")
+		}
+		response := &pb.StreamingHierarchyResponse{
+			Message: &pb.StreamingHierarchyResponse_Error{
+				Error: s.Proto(),
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -1055,9 +1156,9 @@ func (s *DataLoaderServer) GetHierarchy(ctx context.Context, request *pb.IdReque
 	err := row.Scan(&hierarchy.Id, &hierarchy.Name, &hierarchy.TagSetId, &nullableRootNodeID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.HierarchyResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No hierarchy found with ID %d", request.Id)
 		}
-		return &pb.HierarchyResponse{ErrorMessage: fmt.Sprintf("Failed to fetch hierarchy from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch hierarchy from database: %s", err)
 	}
 	if nullableRootNodeID.Valid {
 		hierarchy.RootNodeId = nullableRootNodeID.Int64
@@ -1073,7 +1174,7 @@ func (s *DataLoaderServer) CreateHierarchy(ctx context.Context, request *pb.Crea
 	var nullableRootNodeID sql.NullInt64
 	err := row.Scan(&hierarchy.Id, &hierarchy.Name, &hierarchy.TagSetId, &nullableRootNodeID)
 	if err != nil && err != sql.ErrNoRows {
-		return &pb.HierarchyResponse{ErrorMessage: fmt.Sprintf("Failed to fetch hierarchy from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch hierarchy from database: %s", err)
 	}
 	if err == nil {
 		if nullableRootNodeID.Valid {
@@ -1091,7 +1192,7 @@ func (s *DataLoaderServer) CreateHierarchy(ctx context.Context, request *pb.Crea
 	var insertedHierarchy pb.Hierarchy
 	err = row.Scan(&insertedHierarchy.Id, &insertedHierarchy.Name, &insertedHierarchy.TagSetId)
 	if err != nil {
-		return &pb.HierarchyResponse{ErrorMessage: fmt.Sprintf("Failed to insert hierarchy into database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to insert hierarchy into database: %s", err)
 	}
 
 	return &pb.HierarchyResponse{
@@ -1108,9 +1209,9 @@ func (s *DataLoaderServer) GetNode(ctx context.Context, request *pb.IdRequest) (
 	err := row.Scan(&node.Id, &node.TagId, &node.HierarchyId, &nullableParentNodeID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pb.NodeResponse{ErrorMessage: "No results were fetched"}, nil
+			return nil, status.Errorf(codes.NotFound, "No node found with ID %d", request.Id)
 		}
-		return &pb.NodeResponse{ErrorMessage: fmt.Sprintf("Failed to fetch hierarchy from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch node from database: %s", err)
 	}
 	if nullableParentNodeID.Valid {
 		node.ParentNodeId = nullableParentNodeID.Int64
@@ -1152,7 +1253,11 @@ func (s *DataLoaderServer) GetNodes(request *pb.GetNodesRequest, stream pb.DataL
 		if nullableParentNodeID.Valid {
 			node.ParentNodeId = nullableParentNodeID.Int64
 		}
-		response := &pb.NodeResponse{Node: &node}
+		response := &pb.StreamingNodeResponse{
+			Message: &pb.StreamingNodeResponse_Node{
+				Node: &node,
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -1164,7 +1269,29 @@ func (s *DataLoaderServer) GetNodes(request *pb.GetNodesRequest, stream pb.DataL
 	}
 
 	if rowcount == 0 {
-		response := &pb.NodeResponse{ErrorMessage: "No results were fetched"}
+		var s *status.Status
+		if request.HierarchyId > 0 && request.TagId > 0 && request.ParentNodeId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with hierarchy ID %d, tag ID %d, and parent node ID %d", request.HierarchyId, request.TagId, request.ParentNodeId)
+		} else if request.HierarchyId > 0 && request.TagId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with hierarchy ID %d and tag ID %d", request.HierarchyId, request.TagId)
+		} else if request.HierarchyId > 0 && request.ParentNodeId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with hierarchy ID %d and parent node ID %d", request.HierarchyId, request.ParentNodeId)
+		} else if request.TagId > 0 && request.ParentNodeId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with tag ID %d and parent node ID %d", request.TagId, request.ParentNodeId)
+		} else if request.HierarchyId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with hierarchy ID %d", request.HierarchyId)
+		} else if request.TagId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with tag ID %d", request.TagId)
+		} else if request.ParentNodeId > 0 {
+			s = status.Newf(codes.NotFound, "No nodes found with parent node ID %d", request.ParentNodeId)
+		} else {
+			s = status.Newf(codes.NotFound, "No nodes found")
+		}
+		response := &pb.StreamingNodeResponse{
+			Message: &pb.StreamingNodeResponse_Error{
+				Error: s.Proto(),
+			},
+		}
 		if err := stream.Send(response); err != nil {
 			return fmt.Errorf("failed to send response: %w", err)
 		}
@@ -1180,7 +1307,7 @@ func (s *DataLoaderServer) CreateNode(ctx context.Context, request *pb.CreateNod
 	var existingParentnode sql.NullInt64
 	err := row.Scan(&newNode.Id, &newNode.TagId, &newNode.HierarchyId, &existingParentnode)
 	if err != nil && err != sql.ErrNoRows {
-		return &pb.NodeResponse{ErrorMessage: fmt.Sprintf("Failed to fetch node from database: %s", err)}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to fetch node from database: %s", err)
 
 	}
 	if request.ParentNodeId == 0 {
@@ -1192,18 +1319,18 @@ func (s *DataLoaderServer) CreateNode(ctx context.Context, request *pb.CreateNod
 			var tmpNullParentNode sql.NullInt64
 			err := row.Scan(&newNode.Id, &newNode.TagId, &newNode.HierarchyId, &tmpNullParentNode)
 			if err != nil && err != sql.ErrNoRows {
-				return &pb.NodeResponse{ErrorMessage: fmt.Sprintf("Failed to fetch node from database: %s", err)}, nil
+				return nil, status.Errorf(codes.Internal, "Failed to fetch node from database: %s", err)
 			}
 			queryString = "UPDATE public.hierarchies SET rootnode_id = $1 WHERE id = $2"
 			result, err := s.db.Exec(queryString, newNode.Id, request.HierarchyId)
 			if err != nil {
-				return &pb.NodeResponse{ErrorMessage: fmt.Sprintf("Failed to execute query: %s", err)}, nil
+				return nil, status.Errorf(codes.Internal, "Failed to execute query: %s", err)
 			}
 			if _, err := result.RowsAffected(); err != nil {
-				return &pb.NodeResponse{ErrorMessage: fmt.Sprintf("Failed to update rootnode of hierarchy: %s", err)}, nil
+				return nil, status.Errorf(codes.Internal, "Failed to update rootnode of hierarchy: %s", err)
 			}
 		} else if existingParentnode.Valid {
-			return &pb.NodeResponse{ErrorMessage: "Node already present in hierarchy with a different parent node."}, nil
+			return nil, status.Errorf(codes.AlreadyExists, "Node already present in hierarchy with a different parent node.")
 		}
 	} else {
 		// We are trying to add a non-root node
@@ -1212,10 +1339,10 @@ func (s *DataLoaderServer) CreateNode(ctx context.Context, request *pb.CreateNod
 			row := s.db.QueryRow(queryString, request.TagId, request.HierarchyId, request.ParentNodeId)
 			err := row.Scan(&newNode.Id, &newNode.TagId, &newNode.HierarchyId, &newNode.ParentNodeId)
 			if err != nil && err != sql.ErrNoRows {
-				return &pb.NodeResponse{ErrorMessage: fmt.Sprintf("Failed to fetch node from database: %s", err)}, nil
+				return nil, status.Errorf(codes.Internal, "Failed to insert node into database: %s", err)
 			}
 		} else if !existingParentnode.Valid || existingParentnode.Int64 != request.ParentNodeId {
-			return &pb.NodeResponse{ErrorMessage: "Node already present in hierarchy with a different parent node."}, nil
+			return nil, status.Errorf(codes.AlreadyExists, "Node already present in hierarchy with a different parent node.")
 		} else {
 			newNode.ParentNodeId = existingParentnode.Int64
 		}
@@ -1234,12 +1361,12 @@ func (s *DataLoaderServer) DeleteNode(ctx context.Context, request *pb.IdRequest
 func (s *DataLoaderServer) ResetDatabase(ctx context.Context, request *pb.EmptyRequest) (*pb.StatusResponse, error) {
 	ddlSQL, err := os.ReadFile("../../ddl.sql")
 	if err != nil {
-		return &pb.StatusResponse{ErrorMessage: fmt.Sprintf("Failed to read DDL file: %s", err.Error())}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to read DDL file: %s", err)
 	}
 
 	_, err = s.db.Exec(string(ddlSQL))
 	if err != nil {
-		return &pb.StatusResponse{ErrorMessage: fmt.Sprintf("Failed to execute DDL: %s", err.Error())}, nil
+		return nil, status.Errorf(codes.Internal, "Failed to execute DDL: %s", err)
 	}
 
 	fmt.Println("DB has been reset")
