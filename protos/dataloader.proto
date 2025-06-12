@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/rpc/status.proto";
+
 package dataloader;
 option go_package = "m3.dataloader/dataloader";
 
@@ -54,13 +56,10 @@ service DataLoader {
     // Reads and executes the DDL, which does 2 things: drop the schemas, and recreate all the tables and rules
 }
 
-// NOTE: all the responses have an "error_message" field for error propagation
-
 // General use
 message EmptyRequest {}
 
 message StatusResponse {
-  string error_message = 1;
 }
 
 message IdRequest {
@@ -69,12 +68,10 @@ message IdRequest {
 
 message IdResponse {
 	int64 id = 1;
-  string error_message = 2;
 }
 
 message RepeatedIdResponse {
   repeated int64 ids = 1;
-  string error_message = 2;
 }
 
 // Media / medias
@@ -100,14 +97,21 @@ message CreateMediaRequest {
 
 message MediaResponse {
   Media media = 1;
-  string error_message = 2;
+}
+
+message StreamingMediaResponse {
+  oneof message {
+    Media media = 1;
+    google.rpc.Status error = 2;
+  }
 }
 
 message CreateMediaStreamResponse {  
-	int64 count = 1;
-  string error_message = 2;
+  oneof message {
+    int64 count = 1;
+    google.rpc.Status error = 2;
+  }
 }
-
 
 // TagSets
 
@@ -132,7 +136,13 @@ message CreateTagSetRequest {
 
 message TagSetResponse {
   TagSet tagset = 1;
-  string error_message = 2;
+}
+
+message StreamingTagSetResponse {
+  oneof message {
+    TagSet tagset = 1;
+    google.rpc.Status error = 2;
+  }
 }
 
 // Tags
@@ -190,8 +200,14 @@ message CreateTagRequest {
 }
 
 message TagResponse {
-	Tag tag = 1;	
-  string error_message = 2;
+	Tag tag = 1;
+}
+
+message StreamingTagResponse {
+  oneof message {
+    Tag tag = 1;
+    google.rpc.Status error = 2;
+  }
 }
 
 message CreateTagStreamRequest {
@@ -226,12 +242,20 @@ message CreateTaggingRequest {
 
 message TaggingResponse {
   Tagging tagging = 1;
-	string error_message = 2;
 }
 
-message CreateTaggingStreamResponse {  
-	int64 count = 1;
-  string error_message = 2;
+message StreamingTaggingResponse {
+  oneof message {
+    Tagging tagging = 1;
+    google.rpc.Status error = 2;
+  }
+}
+
+message CreateTaggingStreamResponse {
+  oneof message {
+    int64 count = 1; // Number of taggings added in the batch
+    google.rpc.Status error = 2; // Error message if any
+  }
 }
 
 // Hierarchies
@@ -253,7 +277,13 @@ message CreateHierarchyRequest {
 
 message HierarchyResponse {
   Hierarchy hierarchy = 1;
-  string error_message = 2;
+}
+
+message StreamingHierarchyResponse {
+  oneof message {
+    Hierarchy hierarchy = 1;
+    google.rpc.Status error = 2;
+  }
 }
 
 
@@ -279,5 +309,11 @@ message GetNodesRequest {
 
 message NodeResponse {
   Node node = 1;
-	string error_message = 2;
+}
+
+message StreamingNodeResponse {
+  oneof message {
+    Node node = 1;
+    google.rpc.Status error = 2;
+  }
 }
