@@ -3,8 +3,9 @@ import grpc_client
 import json
 import threading
 import logging
+import sys
 from grpc import RpcError
-from grpc_status import rpc_status
+from grpc import StatusCode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import time
@@ -47,6 +48,9 @@ class FastJSONHandler(FileHandler):
                         try:
                             tagset_response = thread_client.add_tagset(tagset_name, tagset_type)
                         except RpcError as e:
+                            if e.code() == StatusCode.UNAVAILABLE:
+                                logging.error(f"Service unavailable while adding tagset {tagset_name}: {e}")
+                                print("Fatal error, check log file.", file=sys.stderr);exit(1)
                             logging.warning(f"Failed to add tagset {tagset_name} with type {tagset_type}: {e}")
                             return
                         
@@ -59,6 +63,9 @@ class FastJSONHandler(FileHandler):
                         try:
                             tags_response_iterator = thread_client.add_tags(tagset_response.id, tagset_type, tags)
                         except RpcError as e:
+                            if e.code() == StatusCode.UNAVAILABLE:
+                                logging.error(f"Service unavailable while adding tags for tagset {tagset_name}: {e}")
+                                print("Fatal error, check log file.", file=sys.stderr);exit(1)
                             logging.warning(f"Failed to add tags for tagset {tagset_name}: {e}")
                             return
                         for tags_response in tags_response_iterator:
@@ -95,6 +102,9 @@ class FastJSONHandler(FileHandler):
                         try:
                             media_response = thread_client.add_file(media_path, thumbnail_path)
                         except RpcError as e:
+                            if e.code() == StatusCode.UNAVAILABLE:
+                                logging.error(f"Service unavailable while adding media {media_path}: {e}")
+                                print("Fatal error, check log file.", file=sys.stderr);exit(1)
                             logging.warning(f"Failed to add media {media_path}: {e}")
                             return
                         tags = []
@@ -105,6 +115,9 @@ class FastJSONHandler(FileHandler):
                         try:
                             response_iterator = thread_client.add_taggings(media_id=media_response.id, tag_ids=tags)
                         except RpcError as e:
+                            if e.code() == StatusCode.UNAVAILABLE:
+                                logging.error(f"Service unavailable while adding taggings for media {media_path}: {e}")
+                                print("Fatal error, check log file.", file=sys.stderr);exit(1)
                             logging.warning(f"Failed to add taggings for media {media_path}: {e}")
                             return
                         # We need to iterate here because otherwise the thread will terminate without waiting for the responses
@@ -138,6 +151,9 @@ class FastJSONHandler(FileHandler):
                             try:
                                 hierarchy_response = thread_client.add_hierarchy(name, tagset_id)
                             except RpcError as e:
+                                if e.code() == StatusCode.UNAVAILABLE:
+                                    logging.error(f"Service unavailable while adding hierarchy {name} with tagset {tagset_id}: {e}")
+                                    print("Fatal error, check log file.", file=sys.stderr);exit(1)
                                 logging.warning(f"Failed to add hierarchy {name} with tagset {tagset_id}: {e}")
                                 return
                             hierarchy_id = hierarchy_response.id
@@ -148,6 +164,9 @@ class FastJSONHandler(FileHandler):
                                     try:
                                         new_node = thread_client.add_node(tag_id, hierarchy_id, parentnode_id)    # type: ignore
                                     except RpcError as e:
+                                        if e.code() == StatusCode.UNAVAILABLE:
+                                            logging.error(f"Service unavailable while adding node with tag {tag_id} to hierarchy {hierarchy_id}: {e}")
+                                            print("Fatal error, check log file.", file=sys.stderr);exit(1)
                                         logging.warning(f"Failed to add node with tag {tag_id} to hierarchy {hierarchy_id}: {e}")
                                         return
                                     child_nodes = node.get('child_nodes')
@@ -161,6 +180,9 @@ class FastJSONHandler(FileHandler):
                                 try:
                                     rootnode_id = thread_client.add_rootnode(rootnode_tag_id, hierarchy_response.id).id   # type: ignore
                                 except RpcError as e:
+                                    if e.code() == StatusCode.UNAVAILABLE:
+                                        logging.error(f"Service unavailable while adding root node with tag {rootnode_tag_id} to hierarchy {hierarchy_id}: {e}")
+                                        print("Fatal error, check log file.", file=sys.stderr);exit(1)
                                     logging.warning(f"Failed to add root node with tag {rootnode_tag_id} to hierarchy {hierarchy_id}: {e}")
                                     return
                                 child_nodes = rootnode_item.get('child_nodes')
@@ -199,6 +221,9 @@ class FastJSONHandler(FileHandler):
         try:
             response_tagsets = self.client.get_tagsets(-1)
         except RpcError as e:
+            if e.code() == StatusCode.UNAVAILABLE:
+                logging.error(f"Service unavailable while retrieving tagsets: {e}")
+                print("Fatal error, check log file.", file=sys.stderr);exit(1)
             logging.error(f"Failed to retrieve tagsets: {e}")
             return
         tagsets_pbar = tqdm(total=0, desc="Exporting tagsets")
@@ -208,6 +233,9 @@ class FastJSONHandler(FileHandler):
             try:
                 response_tags = thread_client.get_tags(-1, tagset_response.id)
             except RpcError as e:
+                if e.code() == StatusCode.UNAVAILABLE:
+                    logging.error(f"Service unavailable while retrieving tags for tagset {tagset_response.id}: {e}")
+                    print("Fatal error, check log file.", file=sys.stderr);exit(1)
                 logging.error(f"Failed to retrieve tags for tagset {tagset_response.id}: {e}")
                 return
             for tag_response in response_tags:
@@ -250,6 +278,9 @@ class FastJSONHandler(FileHandler):
             try:
                 tag_ids_response = thread_client.get_media_tags(media_response.id)
             except RpcError as e:
+                if e.code() == StatusCode.UNAVAILABLE:
+                    logging.error(f"Service unavailable while retrieving tags for media {media_response.id}: {e}")
+                    print("Fatal error, check log file.", file=sys.stderr);exit(1)
                 logging.error(f"Failed to retrieve tags for media {media_response.id}: {e}")
   
             tag_ids = list(tag_ids_response)
@@ -266,13 +297,16 @@ class FastJSONHandler(FileHandler):
         try:
             response_medias = self.client.get_medias(-1)
         except RpcError as e:
+            if e.code() == StatusCode.UNAVAILABLE:
+                logging.error(f"Service unavailable while retrieving medias: {e}")
+                print("Fatal error, check log file.", file=sys.stderr);exit(1)
             logging.error(f"Failed to retrieve medias: {e}")
             return
 
         medias_executor = ThreadPoolExecutor(max_workers=10)
         for media_response in response_medias:
             if media_response.HasField("error"):
-                if media_response.error.code == rpc_status.NOT_FOUND:
+                if media_response.error.code == StatusCode.NOT_FOUND:
                     continue
                 else:
                     logging.warning(f"Error retrieving media {media_response.id}: {media_response.error}")
@@ -286,6 +320,9 @@ class FastJSONHandler(FileHandler):
         try:
             response_hierarchies = self.client.get_hierarchies(-1)
         except RpcError as e:
+            if e.code() == StatusCode.UNAVAILABLE:
+                logging.error(f"Service unavailable while retrieving hierarchies: {e}")
+                print("Fatal error, check log file.", file=sys.stderr);exit(1)
             logging.error(f"Failed to retrieve hierarchies: {e}")
             return
         hierarchies_pbar = tqdm(total=0, desc="Exporting hierarchies")
@@ -296,18 +333,24 @@ class FastJSONHandler(FileHandler):
             try:
                 rootnode = thread_client.get_node(hierarchy_response.rootNodeId)
             except RpcError as e:
+                if e.code() == StatusCode.UNAVAILABLE:
+                    logging.error(f"Service unavailable while retrieving root node for hierarchy {hierarchy_name}: {e}")
+                    print("Fatal error, check log file.", file=sys.stderr);exit(1)
                 logging.error(f"Failed to retrieve root node for hierarchy {hierarchy_name}: {e}")
                 return
             def fillTree(node):
                 try:
                     child_nodes_response = thread_client.get_nodes(parentnode_id=node.id)
                 except RpcError as e:
+                    if e.code() == StatusCode.UNAVAILABLE:
+                        logging.error(f"Service unavailable while retrieving child nodes for node {node.id}: {e}")
+                        print("Fatal error, check log file.", file=sys.stderr);exit(1)
                     logging.error(f"Failed to retrieve child nodes for node {node.id}: {e}")
                     return {"tag_id": node.tagId, "child_nodes": []}
                 child_nodes = []
                 for child_node in child_nodes_response:
                     if child_node.HasField("error"):
-                        if child_node.error.code == rpc_status.NOT_FOUND:
+                        if child_node.error.code == StatusCode.NOT_FOUND:
                             return {"tag_id": node.tagId, "child_nodes": []}
                         else:
                             logging.warning(f"Error retrieving child node {child_node.id}: {child_node.error}")
@@ -328,7 +371,7 @@ class FastJSONHandler(FileHandler):
         hierarchies_executor = ThreadPoolExecutor(max_workers=10)
         for hierarchy_response in response_hierarchies:
             if hierarchy_response.HasField("error"):
-                if hierarchy_response.error.code == rpc_status.NOT_FOUND:
+                if hierarchy_response.error.code == StatusCode.NOT_FOUND:
                     continue
                 else:
                     logging.warning(f"Error retrieving hierarchy {hierarchy_response.id}: {hierarchy_response.error}")
