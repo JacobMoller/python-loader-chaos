@@ -123,7 +123,7 @@ func (s *DataLoaderServer) GetMedias(request *pb.GetMediasRequest, stream pb.Dat
 	return nil
 }
 
-func (s *DataLoaderServer) GetMediaById(ctx context.Context, request *pb.IdRequest) (*pb.MediaResponse, error) {
+func (s *DataLoaderServer) GetMediaById(ctx context.Context, request *pb.IdRequest) (*pb.Media, error) {
 	row := s.db.QueryRow("SELECT * FROM public.medias WHERE id = $1", request.Id)
 
 	var media pb.Media
@@ -135,12 +135,10 @@ func (s *DataLoaderServer) GetMediaById(ctx context.Context, request *pb.IdReque
 		return nil, status.Errorf(codes.Internal, "Failed to fetch media from database: %s", err)
 	}
 
-	return &pb.MediaResponse{
-		Media: &media,
-	}, nil
+	return &media, nil
 }
 
-func (s *DataLoaderServer) GetMediaByURI(ctx context.Context, request *pb.GetMediaByURIRequest) (*pb.MediaResponse, error) {
+func (s *DataLoaderServer) GetMediaByURI(ctx context.Context, request *pb.GetMediaByURIRequest) (*pb.Media, error) {
 	row := s.db.QueryRow("SELECT * FROM public.medias WHERE file_uri = $1", request.FileUri)
 
 	var media pb.Media
@@ -152,13 +150,11 @@ func (s *DataLoaderServer) GetMediaByURI(ctx context.Context, request *pb.GetMed
 		return nil, status.Errorf(codes.Internal, "Failed to fetch media from database: %s", err)
 	}
 
-	return &pb.MediaResponse{
-		Media: &media,
-	}, nil
+	return &media, nil
 }
 
-func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.CreateMediaRequest) (*pb.MediaResponse, error) {
-	row := s.db.QueryRow("SELECT * FROM public.medias WHERE file_uri = $1", request.Media.FileUri)
+func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.Media) (*pb.Media, error) {
+	row := s.db.QueryRow("SELECT * FROM public.medias WHERE file_uri = $1", request.FileUri)
 
 	var existingMedia pb.Media
 	err := row.Scan(&existingMedia.Id, &existingMedia.FileUri, &existingMedia.FileType, &existingMedia.ThumbnailUri)
@@ -167,28 +163,24 @@ func (s *DataLoaderServer) CreateMedia(ctx context.Context, request *pb.CreateMe
 	}
 
 	if err == nil {
-		if existingMedia.FileType == request.Media.FileType && existingMedia.ThumbnailUri == request.Media.ThumbnailUri {
-			return &pb.MediaResponse{
-				Media: &existingMedia,
-			}, nil
+		if existingMedia.FileType == request.FileType && existingMedia.ThumbnailUri == request.ThumbnailUri {
+			return &existingMedia, nil
 		}
 
-		return nil, status.Errorf(codes.AlreadyExists, "Media URI '%s' already exists with a different type or thumbnail_uri", request.Media.FileUri)
+		return nil, status.Errorf(codes.AlreadyExists, "Media URI '%s' already exists with a different type or thumbnail_uri", request.FileUri)
 	}
 
 	// Insert the new media into the database
 	queryString := "INSERT INTO public.medias (file_uri, file_type, thumbnail_uri) VALUES ($1, $2, $3) RETURNING *;"
 	var insertedMedia pb.Media
 
-	row = s.db.QueryRow(queryString, request.Media.FileUri, request.Media.FileType, request.Media.ThumbnailUri)
+	row = s.db.QueryRow(queryString, request.FileUri, request.FileType, request.ThumbnailUri)
 	err = row.Scan(&insertedMedia.Id, &insertedMedia.FileUri, &insertedMedia.FileType, &insertedMedia.ThumbnailUri)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to insert media into database: %s", err)
 	}
 
-	return &pb.MediaResponse{
-		Media: &insertedMedia,
-	}, nil
+	return &insertedMedia, nil
 }
 
 func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediaStreamServer) error {
@@ -213,9 +205,9 @@ func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediaStreamSe
 
 		queryString += fmt.Sprintf("($%d, $%d, $%d),", dataCounter, dataCounter+1, dataCounter+2)
 		data = append(data,
-			request.Media.FileUri,
-			request.Media.FileType,
-			request.Media.ThumbnailUri,
+			request.FileUri,
+			request.FileType,
+			request.ThumbnailUri,
 		)
 		dataCounter += 3
 
@@ -273,7 +265,7 @@ func (s *DataLoaderServer) CreateMedias(stream pb.DataLoader_CreateMediaStreamSe
 	return nil
 }
 
-func (s *DataLoaderServer) DeleteMedia(ctx context.Context, request *pb.IdRequest) (*pb.StatusResponse, error) {
+func (s *DataLoaderServer) DeleteMedia(ctx context.Context, request *pb.IdRequest) (*pb.Empty, error) {
 	queryString := "DELETE FROM public.medias WHERE id=$1;"
 
 	result, err := s.db.Exec(queryString, request.Id)
@@ -286,7 +278,7 @@ func (s *DataLoaderServer) DeleteMedia(ctx context.Context, request *pb.IdReques
 	}
 
 	if rowsAffected > 0 {
-		response := &pb.StatusResponse{}
+		response := &pb.Empty{}
 		return response, nil
 	} else {
 		return nil, status.Errorf(codes.NotFound, "No media found with ID %d", request.Id)
@@ -317,11 +309,13 @@ func (s *DataLoaderServer) GetTagSets(request *pb.GetTagSetsRequest, stream pb.D
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		response := &pb.TagSetResponse{
-			Tagset: &pb.TagSet{
-				Id:        id,
-				Name:      name,
-				TagTypeId: tagtype_id,
+		response := &pb.StreamingTagSetResponse{
+			Message: &pb.StreamingTagSetResponse_Tagset{
+				Tagset: &pb.TagSet{
+					Id:        id,
+					Name:      name,
+					TagTypeId: tagtype_id,
+				},
 			},
 		}
 
@@ -353,7 +347,7 @@ func (s *DataLoaderServer) GetTagSets(request *pb.GetTagSetsRequest, stream pb.D
 	}
 	return nil
 }
-func (s *DataLoaderServer) GetTagSetById(ctx context.Context, request *pb.IdRequest) (*pb.TagSetResponse, error) {
+func (s *DataLoaderServer) GetTagSetById(ctx context.Context, request *pb.IdRequest) (*pb.TagSet, error) {
 	row := s.db.QueryRow("SELECT * FROM public.tagsets WHERE id = $1", request.Id)
 
 	var tagset pb.TagSet
@@ -365,12 +359,10 @@ func (s *DataLoaderServer) GetTagSetById(ctx context.Context, request *pb.IdRequ
 		return nil, status.Errorf(codes.Internal, "Failed to fetch tagset from database: %s", err)
 	}
 
-	return &pb.TagSetResponse{
-		Tagset: &tagset,
-	}, nil
+	return &tagset, nil
 }
 
-func (s *DataLoaderServer) GetTagSetByName(ctx context.Context, request *pb.GetTagSetRequestByName) (*pb.TagSetResponse, error) {
+func (s *DataLoaderServer) GetTagSetByName(ctx context.Context, request *pb.GetTagSetRequestByName) (*pb.TagSet, error) {
 	row := s.db.QueryRow("SELECT * FROM public.tagsets WHERE name = $1", request.Name)
 
 	var tagset pb.TagSet
@@ -382,11 +374,9 @@ func (s *DataLoaderServer) GetTagSetByName(ctx context.Context, request *pb.GetT
 		return nil, status.Errorf(codes.Internal, "Failed to fetch tagset from database: %s", err)
 	}
 
-	return &pb.TagSetResponse{
-		Tagset: &tagset,
-	}, nil
+	return &tagset, nil
 }
-func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateTagSetRequest) (*pb.TagSetResponse, error) {
+func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateTagSetRequest) (*pb.TagSet, error) {
 	row := s.db.QueryRow("SELECT * FROM public.tagsets WHERE name = $1", request.Name)
 
 	var existingTagset pb.TagSet
@@ -397,9 +387,7 @@ func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateT
 
 	if err == nil {
 		if existingTagset.TagTypeId == request.TagTypeId {
-			return &pb.TagSetResponse{
-				Tagset: &existingTagset,
-			}, nil
+			return &existingTagset, nil
 		}
 
 		return nil, status.Errorf(codes.AlreadyExists, "Tagset name '%s' already exists with a different type", request.Name)
@@ -415,9 +403,7 @@ func (s *DataLoaderServer) CreateTagSet(ctx context.Context, request *pb.CreateT
 		return nil, status.Errorf(codes.Internal, "Failed to insert tagset into database: %s", err)
 	}
 
-	return &pb.TagSetResponse{
-		Tagset: &insertedTagset,
-	}, nil
+	return &insertedTagset, nil
 }
 
 // !================================= Tags
@@ -609,7 +595,7 @@ LEFT JOIN
 	return nil
 }
 
-func (s *DataLoaderServer) GetTag(ctx context.Context, request *pb.IdRequest) (*pb.TagResponse, error) {
+func (s *DataLoaderServer) GetTag(ctx context.Context, request *pb.IdRequest) (*pb.Tag, error) {
 	queryString := `SELECT
     t.id,
     t.tagtype_id,
@@ -641,59 +627,49 @@ LEFT JOIN
 
 	switch tagtype_id {
 	case 1:
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        int64(tag_id),
-				TagSetId:  int64(tagset_id),
-				TagTypeId: int64(tagtype_id),
-				Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        int64(tag_id),
+			TagSetId:  int64(tagset_id),
+			TagTypeId: int64(tagtype_id),
+			Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: value}},
 		}, nil
 	case 2:
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        int64(tag_id),
-				TagSetId:  int64(tagset_id),
-				TagTypeId: int64(tagtype_id),
-				Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        int64(tag_id),
+			TagSetId:  int64(tagset_id),
+			TagTypeId: int64(tagtype_id),
+			Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: value}},
 		}, nil
 	case 3:
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        int64(tag_id),
-				TagSetId:  int64(tagset_id),
-				TagTypeId: int64(tagtype_id),
-				Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        int64(tag_id),
+			TagSetId:  int64(tagset_id),
+			TagTypeId: int64(tagtype_id),
+			Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: value}},
 		}, nil
 	case 4:
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        int64(tag_id),
-				TagSetId:  int64(tagset_id),
-				TagTypeId: int64(tagtype_id),
-				Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        int64(tag_id),
+			TagSetId:  int64(tagset_id),
+			TagTypeId: int64(tagtype_id),
+			Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: value}},
 		}, nil
 	case 5:
 		num_value, err := strconv.Atoi(value)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Error converting tag value to integer: %s", err)
 		}
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        int64(tag_id),
-				TagSetId:  int64(tagset_id),
-				TagTypeId: int64(tagtype_id),
-				Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: int64(num_value)}},
-			},
+		return &pb.Tag{
+			Id:        int64(tag_id),
+			TagSetId:  int64(tagset_id),
+			TagTypeId: int64(tagtype_id),
+			Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: int64(num_value)}},
 		}, nil
 	}
 	return nil, status.Errorf(codes.DataLoss, "Invalid tag type was fetched: %s\nCheck database integrity.", err)
 }
 
-func (s *DataLoaderServer) CreateTag(ctx context.Context, request *pb.CreateTagRequest) (*pb.TagResponse, error) {
+func (s *DataLoaderServer) CreateTag(ctx context.Context, request *pb.CreateTagRequest) (*pb.Tag, error) {
 	queryString := `SELECT t.id, t.tagtype_id, t.tagset_id, a.name::text as value 
 FROM 
     (SELECT * FROM public.tags WHERE tagset_id = $1 AND tagtype_id = $2) t
@@ -731,53 +707,43 @@ FROM
 	if err == nil {
 		switch tagtype_id {
 		case 1:
-			return &pb.TagResponse{
-				Tag: &pb.Tag{
-					Id:        int64(tag_id),
-					TagSetId:  int64(tagset_id),
-					TagTypeId: int64(tagtype_id),
-					Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: value}},
-				},
+			return &pb.Tag{
+				Id:        int64(tag_id),
+				TagSetId:  int64(tagset_id),
+				TagTypeId: int64(tagtype_id),
+				Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: value}},
 			}, nil
 		case 2:
-			return &pb.TagResponse{
-				Tag: &pb.Tag{
-					Id:        int64(tag_id),
-					TagSetId:  int64(tagset_id),
-					TagTypeId: int64(tagtype_id),
-					Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: value}},
-				},
+			return &pb.Tag{
+				Id:        int64(tag_id),
+				TagSetId:  int64(tagset_id),
+				TagTypeId: int64(tagtype_id),
+				Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: value}},
 			}, nil
 		case 3:
-			return &pb.TagResponse{
-				Tag: &pb.Tag{
-					Id:        int64(tag_id),
-					TagSetId:  int64(tagset_id),
-					TagTypeId: int64(tagtype_id),
-					Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: value}},
-				},
+			return &pb.Tag{
+				Id:        int64(tag_id),
+				TagSetId:  int64(tagset_id),
+				TagTypeId: int64(tagtype_id),
+				Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: value}},
 			}, nil
 		case 4:
-			return &pb.TagResponse{
-				Tag: &pb.Tag{
-					Id:        int64(tag_id),
-					TagSetId:  int64(tagset_id),
-					TagTypeId: int64(tagtype_id),
-					Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: value}},
-				},
+			return &pb.Tag{
+				Id:        int64(tag_id),
+				TagSetId:  int64(tagset_id),
+				TagTypeId: int64(tagtype_id),
+				Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: value}},
 			}, nil
 		case 5:
 			num_value, err := strconv.Atoi(value)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "Error converting tag value to integer: %s", err)
 			}
-			return &pb.TagResponse{
-				Tag: &pb.Tag{
-					Id:        int64(tag_id),
-					TagSetId:  int64(tagset_id),
-					TagTypeId: int64(tagtype_id),
-					Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: int64(num_value)}},
-				},
+			return &pb.Tag{
+				Id:        int64(tag_id),
+				TagSetId:  int64(tagset_id),
+				TagTypeId: int64(tagtype_id),
+				Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: int64(num_value)}},
 			}, nil
 		}
 	}
@@ -801,13 +767,11 @@ FROM
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        insertedId,
-				TagSetId:  request.TagSetId,
-				TagTypeId: request.TagTypeId,
-				Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        insertedId,
+			TagSetId:  request.TagSetId,
+			TagTypeId: request.TagTypeId,
+			Value:     &pb.Tag_Alphanumerical{Alphanumerical: &pb.AlphanumericalValue{Value: value}},
 		}, nil
 	case 2:
 		var value string
@@ -817,13 +781,11 @@ FROM
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        insertedId,
-				TagSetId:  request.TagSetId,
-				TagTypeId: request.TagTypeId,
-				Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        insertedId,
+			TagSetId:  request.TagSetId,
+			TagTypeId: request.TagTypeId,
+			Value:     &pb.Tag_Timestamp{Timestamp: &pb.TimeStampValue{Value: value}},
 		}, nil
 	case 3:
 		var value string
@@ -833,13 +795,11 @@ FROM
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        insertedId,
-				TagSetId:  request.TagSetId,
-				TagTypeId: request.TagTypeId,
-				Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        insertedId,
+			TagSetId:  request.TagSetId,
+			TagTypeId: request.TagTypeId,
+			Value:     &pb.Tag_Time{Time: &pb.TimeValue{Value: value}},
 		}, nil
 	case 4:
 		var value string
@@ -849,13 +809,11 @@ FROM
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        insertedId,
-				TagSetId:  request.TagSetId,
-				TagTypeId: request.TagTypeId,
-				Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        insertedId,
+			TagSetId:  request.TagSetId,
+			TagTypeId: request.TagTypeId,
+			Value:     &pb.Tag_Date{Date: &pb.DateValue{Value: value}},
 		}, nil
 	case 5:
 		var value int64
@@ -865,13 +823,11 @@ FROM
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to insert tag into database: %s", err)
 		}
-		return &pb.TagResponse{
-			Tag: &pb.Tag{
-				Id:        insertedId,
-				TagSetId:  request.TagSetId,
-				TagTypeId: request.TagTypeId,
-				Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: value}},
-			},
+		return &pb.Tag{
+			Id:        insertedId,
+			TagSetId:  request.TagSetId,
+			TagTypeId: request.TagTypeId,
+			Value:     &pb.Tag_Numerical{Numerical: &pb.NumericalValue{Value: value}},
 		}, nil
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid tag type provided: range is 1-5")
@@ -879,7 +835,7 @@ FROM
 }
 
 // !================================= Taggings
-func (s *DataLoaderServer) GetTaggings(request *pb.EmptyRequest, stream pb.DataLoader_GetTaggingsServer) error {
+func (s *DataLoaderServer) GetTaggings(request *pb.Empty, stream pb.DataLoader_GetTaggingsServer) error {
 	queryString := "SELECT * FROM public.taggings"
 	rowcount := 0
 	rows, err := s.db.Query(queryString)
@@ -978,7 +934,7 @@ func (s *DataLoaderServer) GetMediaTags(ctx context.Context, request *pb.IdReque
 	}
 	return &pb.RepeatedIdResponse{Ids: tag_ids}, nil
 }
-func (s *DataLoaderServer) CreateTagging(ctx context.Context, request *pb.CreateTaggingRequest) (*pb.TaggingResponse, error) {
+func (s *DataLoaderServer) CreateTagging(ctx context.Context, request *pb.CreateTaggingRequest) (*pb.Tagging, error) {
 	row := s.db.QueryRow("SELECT * FROM public.taggings WHERE object_id = $1 AND tag_id = $2", request.MediaId, request.TagId)
 	var existingTagging pb.Tagging
 	err := row.Scan(&existingTagging.MediaId, &existingTagging.TagId)
@@ -987,9 +943,7 @@ func (s *DataLoaderServer) CreateTagging(ctx context.Context, request *pb.Create
 	}
 	// Tagging already exists
 	if err == nil {
-		return &pb.TaggingResponse{
-			Tagging: &existingTagging,
-		}, nil
+		return &existingTagging, nil
 	}
 
 	// Insert the new media into the database
@@ -1002,9 +956,7 @@ func (s *DataLoaderServer) CreateTagging(ctx context.Context, request *pb.Create
 		return nil, status.Errorf(codes.Internal, "Failed to insert tagging into database: %s", err)
 	}
 
-	return &pb.TaggingResponse{
-		Tagging: &insertedTagging,
-	}, nil
+	return &insertedTagging, nil
 }
 
 func (s *DataLoaderServer) CreateTaggingStream(stream pb.DataLoader_CreateTaggingStreamServer) error {
@@ -1149,7 +1101,7 @@ func (s *DataLoaderServer) GetHierarchies(request *pb.GetHierarchiesRequest, str
 	}
 	return nil
 }
-func (s *DataLoaderServer) GetHierarchy(ctx context.Context, request *pb.IdRequest) (*pb.HierarchyResponse, error) {
+func (s *DataLoaderServer) GetHierarchy(ctx context.Context, request *pb.IdRequest) (*pb.Hierarchy, error) {
 	row := s.db.QueryRow("SELECT * FROM public.hierarchies WHERE id = $1", request.Id)
 	var hierarchy pb.Hierarchy
 	var nullableRootNodeID sql.NullInt64
@@ -1163,12 +1115,10 @@ func (s *DataLoaderServer) GetHierarchy(ctx context.Context, request *pb.IdReque
 	if nullableRootNodeID.Valid {
 		hierarchy.RootNodeId = nullableRootNodeID.Int64
 	}
-	return &pb.HierarchyResponse{
-		Hierarchy: &hierarchy,
-	}, nil
+	return &hierarchy, nil
 
 }
-func (s *DataLoaderServer) CreateHierarchy(ctx context.Context, request *pb.CreateHierarchyRequest) (*pb.HierarchyResponse, error) {
+func (s *DataLoaderServer) CreateHierarchy(ctx context.Context, request *pb.CreateHierarchyRequest) (*pb.Hierarchy, error) {
 	row := s.db.QueryRow("SELECT * FROM public.hierarchies WHERE name = $1 AND tagset_id = $2", request.Name, request.TagSetId)
 	var hierarchy pb.Hierarchy
 	var nullableRootNodeID sql.NullInt64
@@ -1180,9 +1130,7 @@ func (s *DataLoaderServer) CreateHierarchy(ctx context.Context, request *pb.Crea
 		if nullableRootNodeID.Valid {
 			hierarchy.RootNodeId = nullableRootNodeID.Int64
 		}
-		return &pb.HierarchyResponse{
-			Hierarchy: &hierarchy,
-		}, nil
+		return &hierarchy, nil
 	}
 
 	// Insert the new hierarchy into the database
@@ -1195,13 +1143,11 @@ func (s *DataLoaderServer) CreateHierarchy(ctx context.Context, request *pb.Crea
 		return nil, status.Errorf(codes.Internal, "Failed to insert hierarchy into database: %s", err)
 	}
 
-	return &pb.HierarchyResponse{
-		Hierarchy: &insertedHierarchy,
-	}, nil
+	return &insertedHierarchy, nil
 }
 
 // !================================= Nodes
-func (s *DataLoaderServer) GetNode(ctx context.Context, request *pb.IdRequest) (*pb.NodeResponse, error) {
+func (s *DataLoaderServer) GetNode(ctx context.Context, request *pb.IdRequest) (*pb.Node, error) {
 	row := s.db.QueryRow("SELECT * FROM public.nodes WHERE id = $1", request.Id)
 
 	var node pb.Node
@@ -1216,9 +1162,7 @@ func (s *DataLoaderServer) GetNode(ctx context.Context, request *pb.IdRequest) (
 	if nullableParentNodeID.Valid {
 		node.ParentNodeId = nullableParentNodeID.Int64
 	}
-	return &pb.NodeResponse{
-		Node: &node,
-	}, nil
+	return &node, nil
 }
 func (s *DataLoaderServer) GetNodes(request *pb.GetNodesRequest, stream pb.DataLoader_GetNodesServer) error {
 	queryString := "SELECT * FROM public.nodes"
@@ -1298,7 +1242,7 @@ func (s *DataLoaderServer) GetNodes(request *pb.GetNodesRequest, stream pb.DataL
 	}
 	return nil
 }
-func (s *DataLoaderServer) CreateNode(ctx context.Context, request *pb.CreateNodeRequest) (*pb.NodeResponse, error) {
+func (s *DataLoaderServer) CreateNode(ctx context.Context, request *pb.CreateNodeRequest) (*pb.Node, error) {
 	// If we are trying to add a rootnode, the operations are a bit different
 	// First, check if node already exists
 	queryString := "SELECT * FROM public.nodes WHERE tag_id = $1 AND hierarchy_id = $2"
@@ -1348,17 +1292,15 @@ func (s *DataLoaderServer) CreateNode(ctx context.Context, request *pb.CreateNod
 		}
 
 	}
-	return &pb.NodeResponse{
-		Node: &newNode,
-	}, nil
+	return &newNode, nil
 }
 
-func (s *DataLoaderServer) DeleteNode(ctx context.Context, request *pb.IdRequest) (*pb.StatusResponse, error) {
+func (s *DataLoaderServer) DeleteNode(ctx context.Context, request *pb.IdRequest) (*pb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNode not implemented")
 }
 
 // !================================= Other
-func (s *DataLoaderServer) ResetDatabase(ctx context.Context, request *pb.EmptyRequest) (*pb.StatusResponse, error) {
+func (s *DataLoaderServer) ResetDatabase(ctx context.Context, request *pb.Empty) (*pb.Empty, error) {
 	ddlSQL, err := os.ReadFile("../../ddl.sql")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to read DDL file: %s", err)
@@ -1370,7 +1312,7 @@ func (s *DataLoaderServer) ResetDatabase(ctx context.Context, request *pb.EmptyR
 	}
 
 	fmt.Println("DB has been reset")
-	response := &pb.StatusResponse{}
+	response := &pb.Empty{}
 	return response, nil
 }
 

@@ -2,6 +2,9 @@ from filemgmt.filehandler import FileHandler
 import grpc_client
 import json
 import threading
+import logging
+from grpc import RpcError
+from grpc_status import rpc_status
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import time
@@ -41,22 +44,28 @@ class FastJSONHandler(FileHandler):
                         tagset_id = tagset_item.get('id')
                         tagset_name = tagset_item.get('name')
                         tagset_type = tagset_item.get('type')
-                        tagset_response = thread_client.add_tagset(tagset_name, tagset_type)
-                        if type(tagset_response) is str:
-                            return f"Error adding tagset {tagset_name}: {tagset_response}"
-
+                        try:
+                            tagset_response = thread_client.add_tagset(tagset_name, tagset_type)
+                        except RpcError as e:
+                            logging.warning(f"Failed to add tagset {tagset_name} with type {tagset_type}: {e}")
+                            return
+                        
                         tagset_id_map_lock.acquire()
                         tagset_id_map[tagset_id] = (tagset_response.id, tagset_response.tagTypeId)
                         tagset_id_map_lock.release()
                         
                         tags = tagset_item.get('tags')
                         tagid_map_frag = {}
-                        tags_response_iterator = thread_client.add_tags(tagset_response.id, tagset_type, tags)
+                        try:
+                            tags_response_iterator = thread_client.add_tags(tagset_response.id, tagset_type, tags)
+                        except RpcError as e:
+                            logging.warning(f"Failed to add tags for tagset {tagset_name}: {e}")
+                            return
                         for tags_response in tags_response_iterator:
-                            if type(tags_response) is str:
-                                return f"Error adding tags of tagset {tagset_name}: {tags_response}"
-                            else:
-                                tagid_map_frag.update(tags_response)
+                            if tags_response.HasField("error"):
+                                logging.warning(f"Error adding tags for tagset {tagset_name}: {tags_response.error}")
+                                return
+                            tagid_map_frag.update(tags_response)
 
                         return tagid_map_frag
                                     
@@ -83,17 +92,25 @@ class FastJSONHandler(FileHandler):
                         thread_client = grpc_client.LoaderClient()
                         media_path = media_item.get('path')
                         thumbnail_path = media_item.get('thumbnail')
-                        media_response = thread_client.add_file(media_path, thumbnail_path)
-                        if type(media_response) is str:
-                            return f"Couldn't add media {media_item}: {media_response}"
+                        try:
+                            media_response = thread_client.add_file(media_path, thumbnail_path)
+                        except RpcError as e:
+                            logging.warning(f"Failed to add media {media_path}: {e}")
+                            return
                         tags = []
                         for item in media_item.get('tags', []):
                             if item in tag_id_map.keys():
                                 tags.append(tag_id_map[item])
 
-                        response_iterator = thread_client.add_taggings(media_id=media_response.id, tag_ids=tags)
+                        try:
+                            response_iterator = thread_client.add_taggings(media_id=media_response.id, tag_ids=tags)
+                        except RpcError as e:
+                            logging.warning(f"Failed to add taggings for media {media_path}: {e}")
+                            return
                         # We need to iterate here because otherwise the thread will terminate without waiting for the responses
-                        for _ in response_iterator:
+                        for response in response_iterator:
+                            if response.HasField("error"):
+                                logging.warning(f"Error adding taggings for media {media_path}: {response.error}")
                             continue
                         return None
                     
@@ -118,15 +135,21 @@ class FastJSONHandler(FileHandler):
                             thread_client = grpc_client.LoaderClient()
                             name = hierarchy_item.get('name')
                             tagset_id = tagset_id_map[hierarchy_item.get('tagset_id')][0]
-                            hierarchy_response = thread_client.add_hierarchy(name, tagset_id)
-                            if type(hierarchy_response) is str:
-                                raise Exception(f"Couldn't add hierarchy {name}: {hierarchy_response}")
+                            try:
+                                hierarchy_response = thread_client.add_hierarchy(name, tagset_id)
+                            except RpcError as e:
+                                logging.warning(f"Failed to add hierarchy {name} with tagset {tagset_id}: {e}")
+                                return
                             hierarchy_id = hierarchy_response.id
 
                             def addNode(node, parentnode_id):
                                 tag_id = tag_id_map[node.get('tag_id')]
                                 if tag_id:
-                                    new_node = thread_client.add_node(tag_id, hierarchy_id, parentnode_id)    # type: ignore
+                                    try:
+                                        new_node = thread_client.add_node(tag_id, hierarchy_id, parentnode_id)    # type: ignore
+                                    except RpcError as e:
+                                        logging.warning(f"Failed to add node with tag {tag_id} to hierarchy {hierarchy_id}: {e}")
+                                        return
                                     child_nodes = node.get('child_nodes')
                                     for child_node_item in child_nodes:
                                         addNode(child_node_item, new_node.id)
@@ -135,7 +158,11 @@ class FastJSONHandler(FileHandler):
                             rootnode_item = hierarchy_item.get('rootnode')
                             rootnode_tag_id = tag_id_map[rootnode_item.get('tag_id')]
                             if rootnode_tag_id:
-                                rootnode_id = thread_client.add_rootnode(rootnode_tag_id, hierarchy_response.id).id   # type: ignore
+                                try:
+                                    rootnode_id = thread_client.add_rootnode(rootnode_tag_id, hierarchy_response.id).id   # type: ignore
+                                except RpcError as e:
+                                    logging.warning(f"Failed to add root node with tag {rootnode_tag_id} to hierarchy {hierarchy_id}: {e}")
+                                    return
                                 child_nodes = rootnode_item.get('child_nodes')
                                 for child_node_item in child_nodes:                    
                                     addNode(child_node_item, rootnode_id)
@@ -169,22 +196,32 @@ class FastJSONHandler(FileHandler):
         hierarchies = []
         hierarchies_lock = threading.Lock()
 
-        response_tagsets = self.client.get_tagsets(-1)
+        try:
+            response_tagsets = self.client.get_tagsets(-1)
+        except RpcError as e:
+            logging.error(f"Failed to retrieve tagsets: {e}")
+            return
         tagsets_pbar = tqdm(total=0, desc="Exporting tagsets")
         def processTagset(tagset_response):
             thread_client = grpc_client.LoaderClient()
             tags = []
-            response_tags = thread_client.get_tags(-1, tagset_response.id)
+            try:
+                response_tags = thread_client.get_tags(-1, tagset_response.id)
+            except RpcError as e:
+                logging.error(f"Failed to retrieve tags for tagset {tagset_response.id}: {e}")
+                return
             for tag_response in response_tags:
-                if type(tag_response) is not str:                
-                    tag_id = tag_response.id                               
-                    possible_values = [tag_response.alphanumerical.value,
-                                    tag_response.timestamp.value,
-                                    tag_response.time.value,
-                                    tag_response.date.value,
-                                    tag_response.numerical.value]
-                    value = next(value for value in possible_values if value != "")
-                    tags.append({"id":tag_id, "value":value})
+                if tag_response.HasField("error"):
+                    logging.warning(f"Error retrieving tag {tag_response.id} for tagset {tagset_response.id}: {tag_response.error}")
+                    continue
+                tag_id = tag_response.id                               
+                possible_values = [tag_response.alphanumerical.value,
+                                tag_response.timestamp.value,
+                                tag_response.time.value,
+                                tag_response.date.value,
+                                tag_response.numerical.value]
+                value = next(value for value in possible_values if value != "")
+                tags.append({"id":tag_id, "value":value})
             tagsets_lock.acquire()
             tagsets.append(
                 {
@@ -199,7 +236,7 @@ class FastJSONHandler(FileHandler):
         
         tagset_executor = ThreadPoolExecutor(max_workers=10)
         for tagset_response in response_tagsets:
-            if type(tagset_response) is not str:
+            if tagset_response.HasField("error"):
                 tagsets_pbar.total += 1
                 tagsets_pbar.refresh()
                 tagset_executor.submit(processTagset, tagset_response)
@@ -210,9 +247,12 @@ class FastJSONHandler(FileHandler):
         def processMedia(media_response):
             thread_client = grpc_client.LoaderClient()
             tag_ids = []
-            tag_ids_response = thread_client.get_media_tags(media_response.id)
-            if type(tag_ids_response) is not str:
-                tag_ids = list(tag_ids_response)
+            try:
+                tag_ids_response = thread_client.get_media_tags(media_response.id)
+            except RpcError as e:
+                logging.error(f"Failed to retrieve tags for media {media_response.id}: {e}")
+  
+            tag_ids = list(tag_ids_response)
             medias_lock.acquire()
             medias.append(
                 {
@@ -223,31 +263,56 @@ class FastJSONHandler(FileHandler):
             medias_lock.release()
             medias_pbar.update(1)
 
-        response_medias = self.client.get_medias(-1)
+        try:
+            response_medias = self.client.get_medias(-1)
+        except RpcError as e:
+            logging.error(f"Failed to retrieve medias: {e}")
+            return
 
         medias_executor = ThreadPoolExecutor(max_workers=10)
         for media_response in response_medias:
-            if type(media_response) is not str:
-                medias_pbar.total += 1
-                medias_pbar.refresh()
-                medias_executor.submit(processMedia, media_response)
+            if media_response.HasField("error"):
+                if media_response.error.code == rpc_status.NOT_FOUND:
+                    continue
+                else:
+                    logging.warning(f"Error retrieving media {media_response.id}: {media_response.error}")
+                    return
+            medias_pbar.total += 1
+            medias_pbar.refresh()
+            medias_executor.submit(processMedia, media_response)
         
         medias_executor.shutdown()
                 
-        
-        response_hierarchies = self.client.get_hierarchies(-1)
+        try:
+            response_hierarchies = self.client.get_hierarchies(-1)
+        except RpcError as e:
+            logging.error(f"Failed to retrieve hierarchies: {e}")
+            return
         hierarchies_pbar = tqdm(total=0, desc="Exporting hierarchies")
         def processHierarchy(hierarchy_response):
             thread_client = grpc_client.LoaderClient()
             hierarchy_name = hierarchy_response.name
             hierarchy_tagset_id = hierarchy_response.tagSetId
-            rootnode = thread_client.get_node(hierarchy_response.rootNodeId)
+            try:
+                rootnode = thread_client.get_node(hierarchy_response.rootNodeId)
+            except RpcError as e:
+                logging.error(f"Failed to retrieve root node for hierarchy {hierarchy_name}: {e}")
+                return
             def fillTree(node):
-                child_nodes_response = thread_client.get_nodes(parentnode_id=node.id)
+                try:
+                    child_nodes_response = thread_client.get_nodes(parentnode_id=node.id)
+                except RpcError as e:
+                    logging.error(f"Failed to retrieve child nodes for node {node.id}: {e}")
+                    return {"tag_id": node.tagId, "child_nodes": []}
                 child_nodes = []
                 for child_node in child_nodes_response:
-                    if type(child_node) is not str:
-                        child_nodes.append(fillTree(child_node))
+                    if child_node.HasField("error"):
+                        if child_node.error.code == rpc_status.NOT_FOUND:
+                            return {"tag_id": node.tagId, "child_nodes": []}
+                        else:
+                            logging.warning(f"Error retrieving child node {child_node.id}: {child_node.error}")
+                            return {"tag_id": node.tagId, "child_nodes": []}
+                    child_nodes.append(fillTree(child_node))
                 return {"tag_id": node.tagId, "child_nodes":child_nodes}
             
             filled_tree = fillTree(rootnode)
@@ -262,10 +327,15 @@ class FastJSONHandler(FileHandler):
 
         hierarchies_executor = ThreadPoolExecutor(max_workers=10)
         for hierarchy_response in response_hierarchies:
-            if type(hierarchy_response) is not str:
-                hierarchies_pbar.total += 1
-                hierarchies_pbar.refresh()
-                hierarchies_executor.submit(processHierarchy, hierarchy_response)
+            if hierarchy_response.HasField("error"):
+                if hierarchy_response.error.code == rpc_status.NOT_FOUND:
+                    continue
+                else:
+                    logging.warning(f"Error retrieving hierarchy {hierarchy_response.id}: {hierarchy_response.error}")
+                    return
+            hierarchies_pbar.total += 1
+            hierarchies_pbar.refresh()
+            hierarchies_executor.submit(processHierarchy, hierarchy_response)
 
         hierarchies_executor.shutdown()
 

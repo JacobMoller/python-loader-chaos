@@ -54,41 +54,41 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DataLoaderClient interface {
 	// -------------------------- Medias
-	GetMedias(ctx context.Context, in *GetMediasRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MediaResponse], error)
-	GetMediaById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*MediaResponse, error)
-	GetMediaByURI(ctx context.Context, in *GetMediaByURIRequest, opts ...grpc.CallOption) (*MediaResponse, error)
-	CreateMedia(ctx context.Context, in *CreateMediaRequest, opts ...grpc.CallOption) (*MediaResponse, error)
-	CreateMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateMediaRequest, CreateMediaStreamResponse], error)
+	GetMedias(ctx context.Context, in *GetMediasRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingMediaResponse], error)
+	GetMediaById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Media, error)
+	GetMediaByURI(ctx context.Context, in *GetMediaByURIRequest, opts ...grpc.CallOption) (*Media, error)
+	CreateMedia(ctx context.Context, in *Media, opts ...grpc.CallOption) (*Media, error)
+	CreateMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Media, CreateMediaStreamResponse], error)
 	// Create multiple medias at the same time in batches, returns amount added/error messages when a batch is added
-	DeleteMedia(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	DeleteMedia(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Empty, error)
 	// -------------------------- TagSets
-	GetTagSets(ctx context.Context, in *GetTagSetsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TagSetResponse], error)
-	GetTagSetById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*TagSetResponse, error)
-	GetTagSetByName(ctx context.Context, in *GetTagSetRequestByName, opts ...grpc.CallOption) (*TagSetResponse, error)
-	CreateTagSet(ctx context.Context, in *CreateTagSetRequest, opts ...grpc.CallOption) (*TagSetResponse, error)
+	GetTagSets(ctx context.Context, in *GetTagSetsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingTagSetResponse], error)
+	GetTagSetById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*TagSet, error)
+	GetTagSetByName(ctx context.Context, in *GetTagSetRequestByName, opts ...grpc.CallOption) (*TagSet, error)
+	CreateTagSet(ctx context.Context, in *CreateTagSetRequest, opts ...grpc.CallOption) (*TagSet, error)
 	// -------------------------- Tags
-	GetTags(ctx context.Context, in *GetTagsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TagResponse], error)
-	GetTag(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*TagResponse, error)
-	CreateTag(ctx context.Context, in *CreateTagRequest, opts ...grpc.CallOption) (*TagResponse, error)
+	GetTags(ctx context.Context, in *GetTagsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingTagResponse], error)
+	GetTag(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Tag, error)
+	CreateTag(ctx context.Context, in *CreateTagRequest, opts ...grpc.CallOption) (*Tag, error)
 	CreateTagStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateTagStreamRequest, CreateTagStreamResponse], error)
 	// -------------------------- Taggings
-	GetTaggings(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaggingResponse], error)
+	GetTaggings(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingTaggingResponse], error)
 	GetMediasWithTag(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*RepeatedIdResponse, error)
 	GetMediaTags(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*RepeatedIdResponse, error)
-	CreateTagging(ctx context.Context, in *CreateTaggingRequest, opts ...grpc.CallOption) (*TaggingResponse, error)
+	CreateTagging(ctx context.Context, in *CreateTaggingRequest, opts ...grpc.CallOption) (*Tagging, error)
 	CreateTaggingStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateTaggingRequest, CreateTaggingStreamResponse], error)
 	// -------------------------- Hierarchies
-	GetHierarchies(ctx context.Context, in *GetHierarchiesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HierarchyResponse], error)
-	GetHierarchy(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*HierarchyResponse, error)
-	CreateHierarchy(ctx context.Context, in *CreateHierarchyRequest, opts ...grpc.CallOption) (*HierarchyResponse, error)
+	GetHierarchies(ctx context.Context, in *GetHierarchiesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingHierarchyResponse], error)
+	GetHierarchy(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Hierarchy, error)
+	CreateHierarchy(ctx context.Context, in *CreateHierarchyRequest, opts ...grpc.CallOption) (*Hierarchy, error)
 	// -------------------------- Nodes
-	GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeResponse], error)
-	GetNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*NodeResponse, error)
-	CreateNode(ctx context.Context, in *CreateNodeRequest, opts ...grpc.CallOption) (*NodeResponse, error)
-	CreateNodeStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateNodeRequest, NodeResponse], error)
-	DeleteNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingNodeResponse], error)
+	GetNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Node, error)
+	CreateNode(ctx context.Context, in *CreateNodeRequest, opts ...grpc.CallOption) (*Node, error)
+	CreateNodeStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateNodeRequest, StreamingNodeResponse], error)
+	DeleteNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Other
-	ResetDatabase(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	ResetDatabase(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type dataLoaderClient struct {
@@ -99,13 +99,13 @@ func NewDataLoaderClient(cc grpc.ClientConnInterface) DataLoaderClient {
 	return &dataLoaderClient{cc}
 }
 
-func (c *dataLoaderClient) GetMedias(ctx context.Context, in *GetMediasRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MediaResponse], error) {
+func (c *dataLoaderClient) GetMedias(ctx context.Context, in *GetMediasRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingMediaResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[0], DataLoader_GetMedias_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[GetMediasRequest, MediaResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[GetMediasRequest, StreamingMediaResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -116,11 +116,11 @@ func (c *dataLoaderClient) GetMedias(ctx context.Context, in *GetMediasRequest, 
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetMediasClient = grpc.ServerStreamingClient[MediaResponse]
+type DataLoader_GetMediasClient = grpc.ServerStreamingClient[StreamingMediaResponse]
 
-func (c *dataLoaderClient) GetMediaById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*MediaResponse, error) {
+func (c *dataLoaderClient) GetMediaById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Media, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MediaResponse)
+	out := new(Media)
 	err := c.cc.Invoke(ctx, DataLoader_GetMediaById_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -128,9 +128,9 @@ func (c *dataLoaderClient) GetMediaById(ctx context.Context, in *IdRequest, opts
 	return out, nil
 }
 
-func (c *dataLoaderClient) GetMediaByURI(ctx context.Context, in *GetMediaByURIRequest, opts ...grpc.CallOption) (*MediaResponse, error) {
+func (c *dataLoaderClient) GetMediaByURI(ctx context.Context, in *GetMediaByURIRequest, opts ...grpc.CallOption) (*Media, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MediaResponse)
+	out := new(Media)
 	err := c.cc.Invoke(ctx, DataLoader_GetMediaByURI_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -138,9 +138,9 @@ func (c *dataLoaderClient) GetMediaByURI(ctx context.Context, in *GetMediaByURIR
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateMedia(ctx context.Context, in *CreateMediaRequest, opts ...grpc.CallOption) (*MediaResponse, error) {
+func (c *dataLoaderClient) CreateMedia(ctx context.Context, in *Media, opts ...grpc.CallOption) (*Media, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MediaResponse)
+	out := new(Media)
 	err := c.cc.Invoke(ctx, DataLoader_CreateMedia_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -148,22 +148,22 @@ func (c *dataLoaderClient) CreateMedia(ctx context.Context, in *CreateMediaReque
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateMediaRequest, CreateMediaStreamResponse], error) {
+func (c *dataLoaderClient) CreateMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Media, CreateMediaStreamResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[1], DataLoader_CreateMediaStream_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[CreateMediaRequest, CreateMediaStreamResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[Media, CreateMediaStreamResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_CreateMediaStreamClient = grpc.BidiStreamingClient[CreateMediaRequest, CreateMediaStreamResponse]
+type DataLoader_CreateMediaStreamClient = grpc.BidiStreamingClient[Media, CreateMediaStreamResponse]
 
-func (c *dataLoaderClient) DeleteMedia(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+func (c *dataLoaderClient) DeleteMedia(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StatusResponse)
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, DataLoader_DeleteMedia_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -171,13 +171,13 @@ func (c *dataLoaderClient) DeleteMedia(ctx context.Context, in *IdRequest, opts 
 	return out, nil
 }
 
-func (c *dataLoaderClient) GetTagSets(ctx context.Context, in *GetTagSetsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TagSetResponse], error) {
+func (c *dataLoaderClient) GetTagSets(ctx context.Context, in *GetTagSetsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingTagSetResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[2], DataLoader_GetTagSets_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[GetTagSetsRequest, TagSetResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[GetTagSetsRequest, StreamingTagSetResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -188,11 +188,11 @@ func (c *dataLoaderClient) GetTagSets(ctx context.Context, in *GetTagSetsRequest
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetTagSetsClient = grpc.ServerStreamingClient[TagSetResponse]
+type DataLoader_GetTagSetsClient = grpc.ServerStreamingClient[StreamingTagSetResponse]
 
-func (c *dataLoaderClient) GetTagSetById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*TagSetResponse, error) {
+func (c *dataLoaderClient) GetTagSetById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*TagSet, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TagSetResponse)
+	out := new(TagSet)
 	err := c.cc.Invoke(ctx, DataLoader_GetTagSetById_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -200,9 +200,9 @@ func (c *dataLoaderClient) GetTagSetById(ctx context.Context, in *IdRequest, opt
 	return out, nil
 }
 
-func (c *dataLoaderClient) GetTagSetByName(ctx context.Context, in *GetTagSetRequestByName, opts ...grpc.CallOption) (*TagSetResponse, error) {
+func (c *dataLoaderClient) GetTagSetByName(ctx context.Context, in *GetTagSetRequestByName, opts ...grpc.CallOption) (*TagSet, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TagSetResponse)
+	out := new(TagSet)
 	err := c.cc.Invoke(ctx, DataLoader_GetTagSetByName_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -210,9 +210,9 @@ func (c *dataLoaderClient) GetTagSetByName(ctx context.Context, in *GetTagSetReq
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateTagSet(ctx context.Context, in *CreateTagSetRequest, opts ...grpc.CallOption) (*TagSetResponse, error) {
+func (c *dataLoaderClient) CreateTagSet(ctx context.Context, in *CreateTagSetRequest, opts ...grpc.CallOption) (*TagSet, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TagSetResponse)
+	out := new(TagSet)
 	err := c.cc.Invoke(ctx, DataLoader_CreateTagSet_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -220,13 +220,13 @@ func (c *dataLoaderClient) CreateTagSet(ctx context.Context, in *CreateTagSetReq
 	return out, nil
 }
 
-func (c *dataLoaderClient) GetTags(ctx context.Context, in *GetTagsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TagResponse], error) {
+func (c *dataLoaderClient) GetTags(ctx context.Context, in *GetTagsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingTagResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[3], DataLoader_GetTags_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[GetTagsRequest, TagResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[GetTagsRequest, StreamingTagResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -237,11 +237,11 @@ func (c *dataLoaderClient) GetTags(ctx context.Context, in *GetTagsRequest, opts
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetTagsClient = grpc.ServerStreamingClient[TagResponse]
+type DataLoader_GetTagsClient = grpc.ServerStreamingClient[StreamingTagResponse]
 
-func (c *dataLoaderClient) GetTag(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*TagResponse, error) {
+func (c *dataLoaderClient) GetTag(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Tag, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TagResponse)
+	out := new(Tag)
 	err := c.cc.Invoke(ctx, DataLoader_GetTag_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -249,9 +249,9 @@ func (c *dataLoaderClient) GetTag(ctx context.Context, in *IdRequest, opts ...gr
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateTag(ctx context.Context, in *CreateTagRequest, opts ...grpc.CallOption) (*TagResponse, error) {
+func (c *dataLoaderClient) CreateTag(ctx context.Context, in *CreateTagRequest, opts ...grpc.CallOption) (*Tag, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TagResponse)
+	out := new(Tag)
 	err := c.cc.Invoke(ctx, DataLoader_CreateTag_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -272,13 +272,13 @@ func (c *dataLoaderClient) CreateTagStream(ctx context.Context, opts ...grpc.Cal
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type DataLoader_CreateTagStreamClient = grpc.BidiStreamingClient[CreateTagStreamRequest, CreateTagStreamResponse]
 
-func (c *dataLoaderClient) GetTaggings(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaggingResponse], error) {
+func (c *dataLoaderClient) GetTaggings(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingTaggingResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[5], DataLoader_GetTaggings_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[EmptyRequest, TaggingResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[Empty, StreamingTaggingResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func (c *dataLoaderClient) GetTaggings(ctx context.Context, in *EmptyRequest, op
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetTaggingsClient = grpc.ServerStreamingClient[TaggingResponse]
+type DataLoader_GetTaggingsClient = grpc.ServerStreamingClient[StreamingTaggingResponse]
 
 func (c *dataLoaderClient) GetMediasWithTag(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*RepeatedIdResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -311,9 +311,9 @@ func (c *dataLoaderClient) GetMediaTags(ctx context.Context, in *IdRequest, opts
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateTagging(ctx context.Context, in *CreateTaggingRequest, opts ...grpc.CallOption) (*TaggingResponse, error) {
+func (c *dataLoaderClient) CreateTagging(ctx context.Context, in *CreateTaggingRequest, opts ...grpc.CallOption) (*Tagging, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TaggingResponse)
+	out := new(Tagging)
 	err := c.cc.Invoke(ctx, DataLoader_CreateTagging_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -334,13 +334,13 @@ func (c *dataLoaderClient) CreateTaggingStream(ctx context.Context, opts ...grpc
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type DataLoader_CreateTaggingStreamClient = grpc.BidiStreamingClient[CreateTaggingRequest, CreateTaggingStreamResponse]
 
-func (c *dataLoaderClient) GetHierarchies(ctx context.Context, in *GetHierarchiesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HierarchyResponse], error) {
+func (c *dataLoaderClient) GetHierarchies(ctx context.Context, in *GetHierarchiesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingHierarchyResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[7], DataLoader_GetHierarchies_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[GetHierarchiesRequest, HierarchyResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[GetHierarchiesRequest, StreamingHierarchyResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -351,11 +351,11 @@ func (c *dataLoaderClient) GetHierarchies(ctx context.Context, in *GetHierarchie
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetHierarchiesClient = grpc.ServerStreamingClient[HierarchyResponse]
+type DataLoader_GetHierarchiesClient = grpc.ServerStreamingClient[StreamingHierarchyResponse]
 
-func (c *dataLoaderClient) GetHierarchy(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*HierarchyResponse, error) {
+func (c *dataLoaderClient) GetHierarchy(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Hierarchy, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(HierarchyResponse)
+	out := new(Hierarchy)
 	err := c.cc.Invoke(ctx, DataLoader_GetHierarchy_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -363,9 +363,9 @@ func (c *dataLoaderClient) GetHierarchy(ctx context.Context, in *IdRequest, opts
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateHierarchy(ctx context.Context, in *CreateHierarchyRequest, opts ...grpc.CallOption) (*HierarchyResponse, error) {
+func (c *dataLoaderClient) CreateHierarchy(ctx context.Context, in *CreateHierarchyRequest, opts ...grpc.CallOption) (*Hierarchy, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(HierarchyResponse)
+	out := new(Hierarchy)
 	err := c.cc.Invoke(ctx, DataLoader_CreateHierarchy_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -373,13 +373,13 @@ func (c *dataLoaderClient) CreateHierarchy(ctx context.Context, in *CreateHierar
 	return out, nil
 }
 
-func (c *dataLoaderClient) GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NodeResponse], error) {
+func (c *dataLoaderClient) GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamingNodeResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[8], DataLoader_GetNodes_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[GetNodesRequest, NodeResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[GetNodesRequest, StreamingNodeResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -390,11 +390,11 @@ func (c *dataLoaderClient) GetNodes(ctx context.Context, in *GetNodesRequest, op
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetNodesClient = grpc.ServerStreamingClient[NodeResponse]
+type DataLoader_GetNodesClient = grpc.ServerStreamingClient[StreamingNodeResponse]
 
-func (c *dataLoaderClient) GetNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*NodeResponse, error) {
+func (c *dataLoaderClient) GetNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Node, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NodeResponse)
+	out := new(Node)
 	err := c.cc.Invoke(ctx, DataLoader_GetNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -402,9 +402,9 @@ func (c *dataLoaderClient) GetNode(ctx context.Context, in *IdRequest, opts ...g
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateNode(ctx context.Context, in *CreateNodeRequest, opts ...grpc.CallOption) (*NodeResponse, error) {
+func (c *dataLoaderClient) CreateNode(ctx context.Context, in *CreateNodeRequest, opts ...grpc.CallOption) (*Node, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NodeResponse)
+	out := new(Node)
 	err := c.cc.Invoke(ctx, DataLoader_CreateNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -412,22 +412,22 @@ func (c *dataLoaderClient) CreateNode(ctx context.Context, in *CreateNodeRequest
 	return out, nil
 }
 
-func (c *dataLoaderClient) CreateNodeStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateNodeRequest, NodeResponse], error) {
+func (c *dataLoaderClient) CreateNodeStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CreateNodeRequest, StreamingNodeResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DataLoader_ServiceDesc.Streams[9], DataLoader_CreateNodeStream_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[CreateNodeRequest, NodeResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[CreateNodeRequest, StreamingNodeResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_CreateNodeStreamClient = grpc.BidiStreamingClient[CreateNodeRequest, NodeResponse]
+type DataLoader_CreateNodeStreamClient = grpc.BidiStreamingClient[CreateNodeRequest, StreamingNodeResponse]
 
-func (c *dataLoaderClient) DeleteNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+func (c *dataLoaderClient) DeleteNode(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StatusResponse)
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, DataLoader_DeleteNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -435,9 +435,9 @@ func (c *dataLoaderClient) DeleteNode(ctx context.Context, in *IdRequest, opts .
 	return out, nil
 }
 
-func (c *dataLoaderClient) ResetDatabase(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+func (c *dataLoaderClient) ResetDatabase(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StatusResponse)
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, DataLoader_ResetDatabase_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -450,41 +450,41 @@ func (c *dataLoaderClient) ResetDatabase(ctx context.Context, in *EmptyRequest, 
 // for forward compatibility.
 type DataLoaderServer interface {
 	// -------------------------- Medias
-	GetMedias(*GetMediasRequest, grpc.ServerStreamingServer[MediaResponse]) error
-	GetMediaById(context.Context, *IdRequest) (*MediaResponse, error)
-	GetMediaByURI(context.Context, *GetMediaByURIRequest) (*MediaResponse, error)
-	CreateMedia(context.Context, *CreateMediaRequest) (*MediaResponse, error)
-	CreateMediaStream(grpc.BidiStreamingServer[CreateMediaRequest, CreateMediaStreamResponse]) error
+	GetMedias(*GetMediasRequest, grpc.ServerStreamingServer[StreamingMediaResponse]) error
+	GetMediaById(context.Context, *IdRequest) (*Media, error)
+	GetMediaByURI(context.Context, *GetMediaByURIRequest) (*Media, error)
+	CreateMedia(context.Context, *Media) (*Media, error)
+	CreateMediaStream(grpc.BidiStreamingServer[Media, CreateMediaStreamResponse]) error
 	// Create multiple medias at the same time in batches, returns amount added/error messages when a batch is added
-	DeleteMedia(context.Context, *IdRequest) (*StatusResponse, error)
+	DeleteMedia(context.Context, *IdRequest) (*Empty, error)
 	// -------------------------- TagSets
-	GetTagSets(*GetTagSetsRequest, grpc.ServerStreamingServer[TagSetResponse]) error
-	GetTagSetById(context.Context, *IdRequest) (*TagSetResponse, error)
-	GetTagSetByName(context.Context, *GetTagSetRequestByName) (*TagSetResponse, error)
-	CreateTagSet(context.Context, *CreateTagSetRequest) (*TagSetResponse, error)
+	GetTagSets(*GetTagSetsRequest, grpc.ServerStreamingServer[StreamingTagSetResponse]) error
+	GetTagSetById(context.Context, *IdRequest) (*TagSet, error)
+	GetTagSetByName(context.Context, *GetTagSetRequestByName) (*TagSet, error)
+	CreateTagSet(context.Context, *CreateTagSetRequest) (*TagSet, error)
 	// -------------------------- Tags
-	GetTags(*GetTagsRequest, grpc.ServerStreamingServer[TagResponse]) error
-	GetTag(context.Context, *IdRequest) (*TagResponse, error)
-	CreateTag(context.Context, *CreateTagRequest) (*TagResponse, error)
+	GetTags(*GetTagsRequest, grpc.ServerStreamingServer[StreamingTagResponse]) error
+	GetTag(context.Context, *IdRequest) (*Tag, error)
+	CreateTag(context.Context, *CreateTagRequest) (*Tag, error)
 	CreateTagStream(grpc.BidiStreamingServer[CreateTagStreamRequest, CreateTagStreamResponse]) error
 	// -------------------------- Taggings
-	GetTaggings(*EmptyRequest, grpc.ServerStreamingServer[TaggingResponse]) error
+	GetTaggings(*Empty, grpc.ServerStreamingServer[StreamingTaggingResponse]) error
 	GetMediasWithTag(context.Context, *IdRequest) (*RepeatedIdResponse, error)
 	GetMediaTags(context.Context, *IdRequest) (*RepeatedIdResponse, error)
-	CreateTagging(context.Context, *CreateTaggingRequest) (*TaggingResponse, error)
+	CreateTagging(context.Context, *CreateTaggingRequest) (*Tagging, error)
 	CreateTaggingStream(grpc.BidiStreamingServer[CreateTaggingRequest, CreateTaggingStreamResponse]) error
 	// -------------------------- Hierarchies
-	GetHierarchies(*GetHierarchiesRequest, grpc.ServerStreamingServer[HierarchyResponse]) error
-	GetHierarchy(context.Context, *IdRequest) (*HierarchyResponse, error)
-	CreateHierarchy(context.Context, *CreateHierarchyRequest) (*HierarchyResponse, error)
+	GetHierarchies(*GetHierarchiesRequest, grpc.ServerStreamingServer[StreamingHierarchyResponse]) error
+	GetHierarchy(context.Context, *IdRequest) (*Hierarchy, error)
+	CreateHierarchy(context.Context, *CreateHierarchyRequest) (*Hierarchy, error)
 	// -------------------------- Nodes
-	GetNodes(*GetNodesRequest, grpc.ServerStreamingServer[NodeResponse]) error
-	GetNode(context.Context, *IdRequest) (*NodeResponse, error)
-	CreateNode(context.Context, *CreateNodeRequest) (*NodeResponse, error)
-	CreateNodeStream(grpc.BidiStreamingServer[CreateNodeRequest, NodeResponse]) error
-	DeleteNode(context.Context, *IdRequest) (*StatusResponse, error)
+	GetNodes(*GetNodesRequest, grpc.ServerStreamingServer[StreamingNodeResponse]) error
+	GetNode(context.Context, *IdRequest) (*Node, error)
+	CreateNode(context.Context, *CreateNodeRequest) (*Node, error)
+	CreateNodeStream(grpc.BidiStreamingServer[CreateNodeRequest, StreamingNodeResponse]) error
+	DeleteNode(context.Context, *IdRequest) (*Empty, error)
 	// Other
-	ResetDatabase(context.Context, *EmptyRequest) (*StatusResponse, error)
+	ResetDatabase(context.Context, *Empty) (*Empty, error)
 	mustEmbedUnimplementedDataLoaderServer()
 }
 
@@ -495,49 +495,49 @@ type DataLoaderServer interface {
 // pointer dereference when methods are called.
 type UnimplementedDataLoaderServer struct{}
 
-func (UnimplementedDataLoaderServer) GetMedias(*GetMediasRequest, grpc.ServerStreamingServer[MediaResponse]) error {
+func (UnimplementedDataLoaderServer) GetMedias(*GetMediasRequest, grpc.ServerStreamingServer[StreamingMediaResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method GetMedias not implemented")
 }
-func (UnimplementedDataLoaderServer) GetMediaById(context.Context, *IdRequest) (*MediaResponse, error) {
+func (UnimplementedDataLoaderServer) GetMediaById(context.Context, *IdRequest) (*Media, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMediaById not implemented")
 }
-func (UnimplementedDataLoaderServer) GetMediaByURI(context.Context, *GetMediaByURIRequest) (*MediaResponse, error) {
+func (UnimplementedDataLoaderServer) GetMediaByURI(context.Context, *GetMediaByURIRequest) (*Media, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMediaByURI not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateMedia(context.Context, *CreateMediaRequest) (*MediaResponse, error) {
+func (UnimplementedDataLoaderServer) CreateMedia(context.Context, *Media) (*Media, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateMedia not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateMediaStream(grpc.BidiStreamingServer[CreateMediaRequest, CreateMediaStreamResponse]) error {
+func (UnimplementedDataLoaderServer) CreateMediaStream(grpc.BidiStreamingServer[Media, CreateMediaStreamResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method CreateMediaStream not implemented")
 }
-func (UnimplementedDataLoaderServer) DeleteMedia(context.Context, *IdRequest) (*StatusResponse, error) {
+func (UnimplementedDataLoaderServer) DeleteMedia(context.Context, *IdRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteMedia not implemented")
 }
-func (UnimplementedDataLoaderServer) GetTagSets(*GetTagSetsRequest, grpc.ServerStreamingServer[TagSetResponse]) error {
+func (UnimplementedDataLoaderServer) GetTagSets(*GetTagSetsRequest, grpc.ServerStreamingServer[StreamingTagSetResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method GetTagSets not implemented")
 }
-func (UnimplementedDataLoaderServer) GetTagSetById(context.Context, *IdRequest) (*TagSetResponse, error) {
+func (UnimplementedDataLoaderServer) GetTagSetById(context.Context, *IdRequest) (*TagSet, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTagSetById not implemented")
 }
-func (UnimplementedDataLoaderServer) GetTagSetByName(context.Context, *GetTagSetRequestByName) (*TagSetResponse, error) {
+func (UnimplementedDataLoaderServer) GetTagSetByName(context.Context, *GetTagSetRequestByName) (*TagSet, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTagSetByName not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateTagSet(context.Context, *CreateTagSetRequest) (*TagSetResponse, error) {
+func (UnimplementedDataLoaderServer) CreateTagSet(context.Context, *CreateTagSetRequest) (*TagSet, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTagSet not implemented")
 }
-func (UnimplementedDataLoaderServer) GetTags(*GetTagsRequest, grpc.ServerStreamingServer[TagResponse]) error {
+func (UnimplementedDataLoaderServer) GetTags(*GetTagsRequest, grpc.ServerStreamingServer[StreamingTagResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method GetTags not implemented")
 }
-func (UnimplementedDataLoaderServer) GetTag(context.Context, *IdRequest) (*TagResponse, error) {
+func (UnimplementedDataLoaderServer) GetTag(context.Context, *IdRequest) (*Tag, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTag not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateTag(context.Context, *CreateTagRequest) (*TagResponse, error) {
+func (UnimplementedDataLoaderServer) CreateTag(context.Context, *CreateTagRequest) (*Tag, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTag not implemented")
 }
 func (UnimplementedDataLoaderServer) CreateTagStream(grpc.BidiStreamingServer[CreateTagStreamRequest, CreateTagStreamResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method CreateTagStream not implemented")
 }
-func (UnimplementedDataLoaderServer) GetTaggings(*EmptyRequest, grpc.ServerStreamingServer[TaggingResponse]) error {
+func (UnimplementedDataLoaderServer) GetTaggings(*Empty, grpc.ServerStreamingServer[StreamingTaggingResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method GetTaggings not implemented")
 }
 func (UnimplementedDataLoaderServer) GetMediasWithTag(context.Context, *IdRequest) (*RepeatedIdResponse, error) {
@@ -546,37 +546,37 @@ func (UnimplementedDataLoaderServer) GetMediasWithTag(context.Context, *IdReques
 func (UnimplementedDataLoaderServer) GetMediaTags(context.Context, *IdRequest) (*RepeatedIdResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMediaTags not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateTagging(context.Context, *CreateTaggingRequest) (*TaggingResponse, error) {
+func (UnimplementedDataLoaderServer) CreateTagging(context.Context, *CreateTaggingRequest) (*Tagging, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTagging not implemented")
 }
 func (UnimplementedDataLoaderServer) CreateTaggingStream(grpc.BidiStreamingServer[CreateTaggingRequest, CreateTaggingStreamResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method CreateTaggingStream not implemented")
 }
-func (UnimplementedDataLoaderServer) GetHierarchies(*GetHierarchiesRequest, grpc.ServerStreamingServer[HierarchyResponse]) error {
+func (UnimplementedDataLoaderServer) GetHierarchies(*GetHierarchiesRequest, grpc.ServerStreamingServer[StreamingHierarchyResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method GetHierarchies not implemented")
 }
-func (UnimplementedDataLoaderServer) GetHierarchy(context.Context, *IdRequest) (*HierarchyResponse, error) {
+func (UnimplementedDataLoaderServer) GetHierarchy(context.Context, *IdRequest) (*Hierarchy, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetHierarchy not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateHierarchy(context.Context, *CreateHierarchyRequest) (*HierarchyResponse, error) {
+func (UnimplementedDataLoaderServer) CreateHierarchy(context.Context, *CreateHierarchyRequest) (*Hierarchy, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateHierarchy not implemented")
 }
-func (UnimplementedDataLoaderServer) GetNodes(*GetNodesRequest, grpc.ServerStreamingServer[NodeResponse]) error {
+func (UnimplementedDataLoaderServer) GetNodes(*GetNodesRequest, grpc.ServerStreamingServer[StreamingNodeResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method GetNodes not implemented")
 }
-func (UnimplementedDataLoaderServer) GetNode(context.Context, *IdRequest) (*NodeResponse, error) {
+func (UnimplementedDataLoaderServer) GetNode(context.Context, *IdRequest) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNode not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateNode(context.Context, *CreateNodeRequest) (*NodeResponse, error) {
+func (UnimplementedDataLoaderServer) CreateNode(context.Context, *CreateNodeRequest) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNode not implemented")
 }
-func (UnimplementedDataLoaderServer) CreateNodeStream(grpc.BidiStreamingServer[CreateNodeRequest, NodeResponse]) error {
+func (UnimplementedDataLoaderServer) CreateNodeStream(grpc.BidiStreamingServer[CreateNodeRequest, StreamingNodeResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method CreateNodeStream not implemented")
 }
-func (UnimplementedDataLoaderServer) DeleteNode(context.Context, *IdRequest) (*StatusResponse, error) {
+func (UnimplementedDataLoaderServer) DeleteNode(context.Context, *IdRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNode not implemented")
 }
-func (UnimplementedDataLoaderServer) ResetDatabase(context.Context, *EmptyRequest) (*StatusResponse, error) {
+func (UnimplementedDataLoaderServer) ResetDatabase(context.Context, *Empty) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetDatabase not implemented")
 }
 func (UnimplementedDataLoaderServer) mustEmbedUnimplementedDataLoaderServer() {}
@@ -605,11 +605,11 @@ func _DataLoader_GetMedias_Handler(srv interface{}, stream grpc.ServerStream) er
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DataLoaderServer).GetMedias(m, &grpc.GenericServerStream[GetMediasRequest, MediaResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).GetMedias(m, &grpc.GenericServerStream[GetMediasRequest, StreamingMediaResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetMediasServer = grpc.ServerStreamingServer[MediaResponse]
+type DataLoader_GetMediasServer = grpc.ServerStreamingServer[StreamingMediaResponse]
 
 func _DataLoader_GetMediaById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -648,7 +648,7 @@ func _DataLoader_GetMediaByURI_Handler(srv interface{}, ctx context.Context, dec
 }
 
 func _DataLoader_CreateMedia_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateMediaRequest)
+	in := new(Media)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -660,17 +660,17 @@ func _DataLoader_CreateMedia_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: DataLoader_CreateMedia_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DataLoaderServer).CreateMedia(ctx, req.(*CreateMediaRequest))
+		return srv.(DataLoaderServer).CreateMedia(ctx, req.(*Media))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _DataLoader_CreateMediaStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(DataLoaderServer).CreateMediaStream(&grpc.GenericServerStream[CreateMediaRequest, CreateMediaStreamResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).CreateMediaStream(&grpc.GenericServerStream[Media, CreateMediaStreamResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_CreateMediaStreamServer = grpc.BidiStreamingServer[CreateMediaRequest, CreateMediaStreamResponse]
+type DataLoader_CreateMediaStreamServer = grpc.BidiStreamingServer[Media, CreateMediaStreamResponse]
 
 func _DataLoader_DeleteMedia_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -695,11 +695,11 @@ func _DataLoader_GetTagSets_Handler(srv interface{}, stream grpc.ServerStream) e
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DataLoaderServer).GetTagSets(m, &grpc.GenericServerStream[GetTagSetsRequest, TagSetResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).GetTagSets(m, &grpc.GenericServerStream[GetTagSetsRequest, StreamingTagSetResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetTagSetsServer = grpc.ServerStreamingServer[TagSetResponse]
+type DataLoader_GetTagSetsServer = grpc.ServerStreamingServer[StreamingTagSetResponse]
 
 func _DataLoader_GetTagSetById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -760,11 +760,11 @@ func _DataLoader_GetTags_Handler(srv interface{}, stream grpc.ServerStream) erro
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DataLoaderServer).GetTags(m, &grpc.GenericServerStream[GetTagsRequest, TagResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).GetTags(m, &grpc.GenericServerStream[GetTagsRequest, StreamingTagResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetTagsServer = grpc.ServerStreamingServer[TagResponse]
+type DataLoader_GetTagsServer = grpc.ServerStreamingServer[StreamingTagResponse]
 
 func _DataLoader_GetTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -810,15 +810,15 @@ func _DataLoader_CreateTagStream_Handler(srv interface{}, stream grpc.ServerStre
 type DataLoader_CreateTagStreamServer = grpc.BidiStreamingServer[CreateTagStreamRequest, CreateTagStreamResponse]
 
 func _DataLoader_GetTaggings_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(EmptyRequest)
+	m := new(Empty)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DataLoaderServer).GetTaggings(m, &grpc.GenericServerStream[EmptyRequest, TaggingResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).GetTaggings(m, &grpc.GenericServerStream[Empty, StreamingTaggingResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetTaggingsServer = grpc.ServerStreamingServer[TaggingResponse]
+type DataLoader_GetTaggingsServer = grpc.ServerStreamingServer[StreamingTaggingResponse]
 
 func _DataLoader_GetMediasWithTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -886,11 +886,11 @@ func _DataLoader_GetHierarchies_Handler(srv interface{}, stream grpc.ServerStrea
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DataLoaderServer).GetHierarchies(m, &grpc.GenericServerStream[GetHierarchiesRequest, HierarchyResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).GetHierarchies(m, &grpc.GenericServerStream[GetHierarchiesRequest, StreamingHierarchyResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetHierarchiesServer = grpc.ServerStreamingServer[HierarchyResponse]
+type DataLoader_GetHierarchiesServer = grpc.ServerStreamingServer[StreamingHierarchyResponse]
 
 func _DataLoader_GetHierarchy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -933,11 +933,11 @@ func _DataLoader_GetNodes_Handler(srv interface{}, stream grpc.ServerStream) err
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DataLoaderServer).GetNodes(m, &grpc.GenericServerStream[GetNodesRequest, NodeResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).GetNodes(m, &grpc.GenericServerStream[GetNodesRequest, StreamingNodeResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_GetNodesServer = grpc.ServerStreamingServer[NodeResponse]
+type DataLoader_GetNodesServer = grpc.ServerStreamingServer[StreamingNodeResponse]
 
 func _DataLoader_GetNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -976,11 +976,11 @@ func _DataLoader_CreateNode_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _DataLoader_CreateNodeStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(DataLoaderServer).CreateNodeStream(&grpc.GenericServerStream[CreateNodeRequest, NodeResponse]{ServerStream: stream})
+	return srv.(DataLoaderServer).CreateNodeStream(&grpc.GenericServerStream[CreateNodeRequest, StreamingNodeResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DataLoader_CreateNodeStreamServer = grpc.BidiStreamingServer[CreateNodeRequest, NodeResponse]
+type DataLoader_CreateNodeStreamServer = grpc.BidiStreamingServer[CreateNodeRequest, StreamingNodeResponse]
 
 func _DataLoader_DeleteNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
@@ -1001,7 +1001,7 @@ func _DataLoader_DeleteNode_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _DataLoader_ResetDatabase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyRequest)
+	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1013,7 +1013,7 @@ func _DataLoader_ResetDatabase_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: DataLoader_ResetDatabase_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DataLoaderServer).ResetDatabase(ctx, req.(*EmptyRequest))
+		return srv.(DataLoaderServer).ResetDatabase(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
