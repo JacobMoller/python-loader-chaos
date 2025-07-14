@@ -1,5 +1,8 @@
 import csv
 import grpc_client
+
+from grpc import RpcError
+import logging
 from filemgmt.filehandler import FileHandler
 
 class CSVHandler(FileHandler):
@@ -22,9 +25,11 @@ class CSVHandler(FileHandler):
                         iterator += 1
                         current_name = item
                     elif item.isdigit() and current_name is not None:
-                        response = self.client.add_tagset(current_name, int(item))
-                        if type(response) is dict: # If the tagset already exists
-                            response = self.client.get_tagset_by_name(current_name)
+                        try:
+                            response = self.client.add_tagset(current_name, int(item))
+                        except RpcError as e:
+                            logging.warning(f"Failed to add tagset {current_name} with type {item}: {e}")
+                            continue
                         id_map[iterator] = (response.id, response.tagTypeId)                            # type: ignore
                         current_name = None
                     else:
@@ -39,19 +44,29 @@ class CSVHandler(FileHandler):
                         if not row:
                             continue        # Skip empty rows
                         path = row[0]
-                        media_response = self.client.add_file(path)
-                        if not media_response.id:                       # type: ignore
-                            raise Exception(f"Invalid media, could not add to DB")
+                        try:
+                            media_response = self.client.add_file(path)
+                        except RpcError as e:
+                            logging.warning(f"Failed to add media {path}: {e}")
+                            continue
                         for i in range(1, len(row), 2):
                             tagset_id = id_map[int(row[i])][0]          # we have to use the correct tagset_id in db
                             tagtype_id = id_map[int(row[i])][1]
                             if (not tagset_id) or (not tagtype_id):
                                 raise Exception(f"Invalid tag definition: {tagset_id}:{tagtype_id}")
                             value = row[i+1]
-                            tag_response = self.client.add_tag(tagset_id, tagtype_id, value)
+                            try:
+                                tag_response = self.client.add_tag(tagset_id, tagtype_id, value)
+                            except RpcError as e:
+                                logging.warning(f"Failed to add tag {value} for tagset {tagset_id}: {e}")
+                                continue
                             if not tag_response.id:                     # type: ignore
                                 raise Exception("Could not add tag")
-                            tagging_response = self.client.add_tagging(media_id=media_response.id, tag_id=tag_response.id) # type: ignore
+                            try:
+                                tagging_response = self.client.add_tagging(media_id=media_response.id, tag_id=tag_response.id) # type: ignore
+                            except RpcError as e:
+                                logging.warning(f"Failed to tag media {media_response.id} with tag {tag_response.id}: {e}")
+                                continue
                             if not tagging_response.mediaId:            # type: ignore
                                 raise Exception("Could not add tag")
                     except Exception as e:
@@ -68,8 +83,15 @@ class CSVHandler(FileHandler):
 
         # Prepare the header line with tagset names and types
         header = []
-        response_tagsets = self.client.get_tagsets(-1)
+        try:
+            response_tagsets = self.client.get_tagsets(-1)
+        except RpcError as e:
+            logging.error(f"Failed to retrieve tagsets: {e}")
+            return
         for tagset_response in response_tagsets:
+            if tagset_response.HasField("error"):
+                logging.warning(f"Error retrieving tagset: {tagset_response.error}")
+                continue
             header.extend([f"\"{tagset_response.name}\"", f"{tagset_response.tagTypeId}"]) # type: ignore
             
         # Write the data to the CSV file
@@ -77,14 +99,28 @@ class CSVHandler(FileHandler):
             csv_writer = csv.writer(file, delimiter=";", quoting=csv.QUOTE_NONE, escapechar='', quotechar='')
             csv_writer.writerow(header)
 
-
-            response_medias = self.client.get_medias(-1)
+            try:
+                response_medias = self.client.get_medias(-1)
+            except RpcError as e:
+                logging.error(f"Failed to retrieve medias: {e}")
+                return
             for media_response in response_medias:
+                if media_response.HasField("error"):
+                    logging.warning(f"Error retrieving media: {media_response.error}")
+                    continue
                 path = media_response.file_uri                              # type: ignore
                 row = [f'\"{path}\"']
-                tag_ids = self.client.get_media_tags(media_response.id)          # type: ignore
+                try:
+                    tag_ids = self.client.get_media_tags(media_response.id)          # type: ignore
+                except RpcError as e:
+                    logging.error(f"Failed to retrieve tags for media {media_response.id}: {e}")
+                    continue
                 for id_tag in tag_ids:
-                    tag_response = self.client.get_tag(int(id_tag))                      # type: ignore
+                    try:
+                        tag_response = self.client.get_tag(int(id_tag))                      # type: ignore
+                    except RpcError as e:
+                        logging.warning(f"Failed to retrieve tag {id_tag}: {e}")
+                        continue
                     tagset_id = tag_response.tagSetId                               # type: ignore
                     possible_values = [tag_response.alphanumerical.value,           # type: ignore
                                     tag_response.timestamp.value,                # type: ignore

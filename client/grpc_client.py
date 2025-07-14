@@ -15,16 +15,14 @@ class LoaderClient:
     # Get a single media with the given ID
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.getMediaById(request)
-        return response.error_message if response.error_message \
-        else response.media
+        return response
 
     
     def get_media_by_uri(self, file_uri: str):
     # Get a an media ID using its URI
         request = rpc_objects.GetMediaByURIRequest(file_uri=file_uri)
         response = self.grpc_stub.getMediaByURI(request)
-        return response.error_message if response.error_message \
-        else response.media
+        return response
 
 
     def get_medias(self, file_type: int):
@@ -35,8 +33,7 @@ class LoaderClient:
             request = rpc_objects.GetMediasRequest()
         response_iterator = self.grpc_stub.getMedias(request)
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.media
+            yield response.media
             
 
     def add_dir(self, directory: str, formats):
@@ -56,18 +53,17 @@ class LoaderClient:
                     else: 
                         file_type = 4		# Other
                     file_count += 1
-                    request = rpc_objects.CreateMediaRequest(media={
-                        "file_uri": file_path,
-                        "file_type": file_type,
-                        "thumbnail_uri": file_path
-                        })
+                    request = rpc_objects.Media(
+                        file_uri= file_path,
+                        file_type= file_type,
+                        thumbnail_uri= file_path
+                    )
                     yield request
         
        
         response_iterator = self.grpc_stub.createMediaStream(add_media_requests_generator())
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else 'Info: added %d medias to database.' % (response.count)
+            yield 'Info: added %d medias to database.' % (response.count)
         if file_count == 0 : yield 'Info: no files of the specified format were found in the directory.'
         else : yield 'Info: %d files were found in the directory.' % file_count
 
@@ -83,23 +79,20 @@ class LoaderClient:
             file_type = 3		# Video
         else: 
             file_type = 4		# Other
-        request = rpc_objects.CreateMediaRequest(media={
-            "file_uri": file_path,
-            "file_type": file_type,
-            "thumbnail_uri": thumbnail_path if thumbnail_path else file_path
-            })
-        
+        request = rpc_objects.Media(
+            file_uri= file_path,
+            file_type= file_type,
+            thumbnail_uri= thumbnail_path if thumbnail_path else file_path
+            )        
         response = self.grpc_stub.createMedia(request)
-        return response.error_message if response.error_message \
-        else response.media
+        return response
 
 
     # Delete a single media with the given ID
     def delete_media(self, id: int):
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.deleteMedia(request)
-        return response.error_message if response.error_message \
-        else 'Success, media removed from database.'
+        return 'Success, media removed from database.'
 
 
     #!================ Tagset functions ======================================================================
@@ -109,26 +102,22 @@ class LoaderClient:
         else : request = rpc_objects.GetTagSetsRequest()
         response_iterator = self.grpc_stub.getTagSets(request)
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.tagset
+            yield response.tagset
 
     def add_tagset(self, name: str, tagtype_id: int):
         request = rpc_objects.CreateTagSetRequest(name=name, tagTypeId=tagtype_id)
         response = self.grpc_stub.createTagSet(request)
-        return response.error_message if response.error_message \
-        else response.tagset
+        return response
     
     def get_tagset_by_id(self, id: int):
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.getTagSetById(request)
-        return response.error_message if response.error_message \
-        else response.tagset
+        return response
     
     def get_tagset_by_name(self, name: str):
         request = rpc_objects.GetTagSetRequestByName(name=name)
         response = self.grpc_stub.getTagSetByName(request)
-        return response.error_message if response.error_message \
-        else response.tagset
+        return response
         
     #!================ Tag functions ======================================================================
     
@@ -151,8 +140,7 @@ class LoaderClient:
             
         response_iterator = self.grpc_stub.getTags(request)
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.tag
+            yield response.tag
 
     def add_tag(self, tagset_id: int, tagtype_id: int, value):
         match tagtype_id:
@@ -191,8 +179,7 @@ class LoaderClient:
                 return 'Error : Not a valid tag type. Range is [1:5]'
 
         response = self.grpc_stub.createTag(request)
-        return response.error_message if response.error_message \
-        else response.tag
+        return response
    
         
     def add_tags(self, tagset_id: int, tagtype_id: int, tags:list[dict]):
@@ -244,8 +231,7 @@ class LoaderClient:
         response_iterator = self.grpc_stub.createTagStream(tags_iterator())
         try:
             for response in response_iterator:
-                yield response.error_message if response.error_message \
-                else response.id_map
+                yield response.id_map
         except Exception as e:
             print(f"Tagset: {tagset_id}, TagType: {tagtype_id}")
             print(f"Error: {e}")
@@ -253,16 +239,14 @@ class LoaderClient:
     def get_tag(self, tag_id: int):
         request = rpc_objects.IdRequest(id=tag_id)
         response = self.grpc_stub.getTag(request)
-        return response.error_message if response.error_message \
-        else response.tag
+        return response
 
     #!================ Tagging functions ======================================================================
     def get_taggings(self):
-        request = rpc_objects.EmptyRequest()
+        request = rpc_objects.Empty()
         response_iterator = self.grpc_stub.getTaggings(request)
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.tagging
+            yield response.tagging
 
     def add_tagging(self, tag_id: int, media_id: int):
         request = rpc_objects.CreateTaggingRequest(
@@ -270,8 +254,7 @@ class LoaderClient:
             mediaId=media_id
         )
         response = self.grpc_stub.createTagging(request)
-        return response.error_message if response.error_message \
-        else response.tagging
+        return response
     
     def add_taggings(self, media_id, tag_ids):
         def taggings_iterator():
@@ -279,20 +262,17 @@ class LoaderClient:
                 yield rpc_objects.CreateTaggingRequest(mediaId=media_id, tagId=tag_id)
 
         for response in self.grpc_stub.createTaggingStream(taggings_iterator()):
-            yield response.error_message if response.error_message \
-            else response.count
+            yield response.count
 
     def get_medias_with_tag(self, id: int):
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.getMediasWithTag(request)
-        return response.error_message if response.error_message \
-        else response.ids
+        return response.ids
 
     def get_media_tags(self, id: int):
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.getMediaTags(request)
-        return response.error_message if response.error_message \
-        else response.ids
+        return response.ids
 
 #!================ Hierarchy functions ====================================================================
 
@@ -303,8 +283,7 @@ class LoaderClient:
             request = rpc_objects.GetHierarchiesRequest()
         response_iterator = self.grpc_stub.getHierarchies(request)
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.hierarchy
+            yield response.hierarchy
 
     def add_hierarchy(self, name: str, tagset_id: int):
         request = rpc_objects.CreateHierarchyRequest(
@@ -312,15 +291,13 @@ class LoaderClient:
             tagSetId=tagset_id
         )
         response = self.grpc_stub.createHierarchy(request)
-        return response.error_message if response.error_message \
-        else response.hierarchy
+        return response
     
 
     def get_hierarchy(self, id: int):
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.getHierarchy(request)
-        return response.error_message if response.error_message \
-        else response.hierarchy
+        return response
 
 
 
@@ -333,8 +310,7 @@ class LoaderClient:
             parentNodeId=parentnode_id
         )
         response = self.grpc_stub.createNode(request)
-        return response.error_message if response.error_message \
-        else response.node
+        return response
 
         
 
@@ -344,35 +320,30 @@ class LoaderClient:
             hierarchyId=hierarchy_id
         )
         response = self.grpc_stub.createNode(request)
-        return response.error_message if response.error_message \
-        else response.node
+        return response
         
         
     def get_node(self, id: int):
         request = rpc_objects.IdRequest(id=id)
         response = self.grpc_stub.getNode(request)
-        return response.error_message if response.error_message \
-        else response.node
+        return response
     
     def get_nodes(self, hierarchy_id: int = 0, tag_id: int = 0, parentnode_id: int = 0):
         request = rpc_objects.GetNodesRequest(hierarchyId=hierarchy_id, tagId=tag_id, parentNodeId=parentnode_id)
         response_iterator = self.grpc_stub.getNodes(request)
         for response in response_iterator:
-            yield response.error_message if response.error_message \
-            else response.node
+            yield response.node
     
     def delete_node(self, node_id: int):
         request = rpc_objects.IdRequest(id=node_id)
         response = self.grpc_stub.deleteNode(request)
-        return response.error_message if response.error_message \
-        else f"Node {node_id} deleted."
+        return f"Node {node_id} deleted."
     
 
     #!================ DB management ======================================================================
 
     # Reset the database
     def reset(self):
-        request = rpc_objects.EmptyRequest()
+        request = rpc_objects.Empty()
         response = self.grpc_stub.resetDatabase(request)
-        return response.error_message if response.error_message \
-        else 'Success, database was successfully reset.'
+        return 'Success, database was successfully reset.'
