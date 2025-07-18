@@ -95,7 +95,8 @@ You can then run the server :
 
 ```shell
 $ go mod tidy
-$ go run server/server.go
+$ go build -o go-server ./server
+$ ./go-server
 ```
 
 ### Client and CLI
