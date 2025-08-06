@@ -76,7 +76,7 @@ $ python app.py
 
 #### Go Server
 
-The do server is located in the `go-server` folder. Make sure the database parameters are set correctly in the `server.go` file, lines 25-34
+The Go server is located in the `go-server` folder. Make sure the database parameters are set correctly in the `server.go` file, lines 25-34
 
 ```go
 const (
@@ -94,8 +94,10 @@ const (
 You can then run the server :
 
 ```shell
+$ cd go-server
 $ go mod tidy
-$ go build -o go-server ./server
+$ go build -o server/go-server ./server
+$ cd server
 $ ./go-server
 ```
 
