@@ -12,7 +12,6 @@ import (
 	pb "m3.dataloader/dataloader"
 )
 
-// !================================= Taggings
 func (s *DataLoaderServer) GetTaggings(request *pb.Empty, stream pb.DataLoader_GetTaggingsServer) error {
 	queryString := "SELECT * FROM public.taggings"
 	rowcount := 0

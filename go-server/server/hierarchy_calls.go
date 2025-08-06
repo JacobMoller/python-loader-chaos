@@ -10,7 +10,6 @@ import (
 	pb "m3.dataloader/dataloader"
 )
 
-// !================================= Hierarchies
 func (s *DataLoaderServer) GetHierarchies(request *pb.GetHierarchiesRequest, stream pb.DataLoader_GetHierarchiesServer) error {
 	queryString := "SELECT * FROM public.hierarchies"
 	args := []interface{}{}

@@ -12,7 +12,6 @@ import (
 	pb "m3.dataloader/dataloader"
 )
 
-// !================================= Medias
 func (s *DataLoaderServer) GetMedias(request *pb.GetMediasRequest, stream pb.DataLoader_GetMediasServer) error {
 	queryString := "SELECT * FROM public.medias"
 	args := []interface{}{}

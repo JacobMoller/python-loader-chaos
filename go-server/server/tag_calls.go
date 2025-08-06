@@ -11,7 +11,6 @@ import (
 	pb "m3.dataloader/dataloader"
 )
 
-// !================================= Tags
 func (s *DataLoaderServer) GetTags(request *pb.GetTagsRequest, stream pb.DataLoader_GetTagsServer) error {
 	queryString := `SELECT
     t.id,

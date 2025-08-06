@@ -10,7 +10,6 @@ import (
 	pb "m3.dataloader/dataloader"
 )
 
-// !================================= Tagsets
 func (s *DataLoaderServer) GetTagSets(request *pb.GetTagSetsRequest, stream pb.DataLoader_GetTagSetsServer) error {
 	queryString := "SELECT * FROM public.tagsets"
 	args := []interface{}{}

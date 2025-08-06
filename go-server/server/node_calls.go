@@ -10,7 +10,6 @@ import (
 	pb "m3.dataloader/dataloader"
 )
 
-// !================================= Nodes
 func (s *DataLoaderServer) GetNode(ctx context.Context, request *pb.IdRequest) (*pb.Node, error) {
 	row := s.db.QueryRow("SELECT * FROM public.nodes WHERE id = $1", request.Id)
 
