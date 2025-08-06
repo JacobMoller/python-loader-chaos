@@ -1,17 +1,13 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 
 	"log"
 	"net"
-	"os"
 
 	"google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 
 	_ "github.com/lib/pq"
 
@@ -55,22 +51,6 @@ func NewDataLoaderServer(connStr string) (*DataLoaderServer, error) {
 // Close closes the database connection.
 func (s *DataLoaderServer) Close() {
 	s.db.Close()
-}
-
-func (s *DataLoaderServer) ResetDatabase(ctx context.Context, request *pb.Empty) (*pb.Empty, error) {
-	ddlSQL, err := os.ReadFile("../../ddl.sql")
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to read DDL file: %s", err)
-	}
-
-	_, err = s.db.Exec(string(ddlSQL))
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to execute DDL: %s", err)
-	}
-
-	fmt.Println("DB has been reset")
-	response := &pb.Empty{}
-	return response, nil
 }
 
 func main() {
