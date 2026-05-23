@@ -1,46 +1,265 @@
-version: '3.8'
-services:
+services: 
   db:
+    container_name: db
     image: postgres:14.1-alpine
     restart: always
     environment:
+      - POSTGRES_DB=loader-testing
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=root
     ports:
       - "5432:5432"
     volumes:
       - db:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/create_tables.sql
-  server:
-    container_name: python-server
-    build: ./server
+      - ./ddl.sql:/docker-entrypoint-initdb.d/create_tables.sql
+      - ./list_taggings.sql:/docker-entrypoint-initdb.d/list_taggings.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "loader-testing"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.8.9-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_NODE_PORT: 5672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  go-server:
+    container_name: go-server
+    build: ./go-server
     ports:
       - "50051:50051"
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
     environment:
+      DB_NAME: loader-testing
+      DB_USER: postgres
+      DB_PASSWORD: root
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: postgres
+      SV_HOST: 0.0.0.0
+      SV_PORT: 50051
+      BATCH_SIZE: 5000
     links:
      - db
-    volumes:
-      - ./server:/app
     restart: always
     depends_on:
-      - db
+      rabbitmq:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "grpc-health-probe", "-addr=:50051"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  
+      
   client:
     container_name: python-client
     build: ./client
     ports:
       - "8080:8080"
+    environment:
+      SV_HOST: go-server
+      SV_PORT: 50051
     volumes:
-      - ./client:/app
+      #- ./client:/app
+      - medias:/app/medias
     restart: always
     depends_on:
       - db
-      - server
-  
+      - go-server
+
+  media-downloader:
+    container_name: media-downloader
+    # profiles: ["medias"]
+    build: ./go-server/media_downloader
+    ports:
+      - "50052:50052"
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      - MEDIA_DOWNLOADER_HOST=0.0.0.0
+      - MEDIA_DOWNLOADER_PORT=50052
+      - MAX_CACHE_SIZE=1000
+      - RESSOURCE_TTL=5
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    healthcheck:
+      test: ["CMD", "grpc-health-probe", "-addr=:50052"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  exif-extractor:
+    container_name: plugin-exif-extractor
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/exif_extractor/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  time-info:
+    container_name: plugin-time-info
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/time_info/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    depends_on:
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy 
+
+  # location-info:
+  #   container_name: plugin-location-info
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/location_info/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   depends_on:
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy 
+
+  captioning:
+    container_name: plugin-captioning
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/captioning/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - ./model_cache:/root/.cache
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  classifier:
+    container_name: plugin-classifier
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/classifier/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    
+  face-recognition:
+    container_name: plugin-face-recognition
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/face_recognition/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+      - known_faces:/app/known_faces
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  date-hierarchy-builder:
+    container_name: plugin-date-hierarchy-builder
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/date_hierarchy_builder/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env" 
+    depends_on:
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy 
+  geodatas:
+    container_name: plugin-geodatas
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/geodatas/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    depends_on:
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
+  downloaded-medias:
+    driver: local
   db:
     driver: local
+  medias:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./medias
+  known_faces:
+    driver: local
+    
+  

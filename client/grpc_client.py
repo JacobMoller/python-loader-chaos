@@ -33,7 +33,7 @@ class LoaderClient:
             request = rpc_objects.GetMediasRequest()
         response_iterator = self.grpc_stub.getMedias(request)
         for response in response_iterator:
-            yield response.media
+            yield response  # FIX: yield wrapper complet pour que le CLI puisse appeler HasField("error")
             
 
     def add_dir(self, directory: str, formats):
@@ -66,6 +66,36 @@ class LoaderClient:
             yield 'Info: added %d medias to database.' % (response.count)
         if file_count == 0 : yield 'Info: no files of the specified format were found in the directory.'
         else : yield 'Info: %d files were found in the directory.' % file_count
+
+    def add_media_with_tags(self, path: str, tags: list[dict], thumbnail_path: str = None):
+        if path.lower().endswith(('jpg', 'png', 'bmp')):
+            file_type = 1       # Image
+        elif path.lower().endswith(('mp3', 'wav', 'flac')):
+            file_type = 2       # Audio
+        elif path.lower().endswith(('mp4', 'avi')):
+            file_type = 3       # Video
+        else:
+            file_type = 4       # Other
+
+        tag_entries = [
+            rpc_objects.TagEntry(
+                tagset_name=t['tagset_name'],
+                tagtype_id=t['tagtype_id'],
+                value=str(t['value']),
+            )
+            for t in tags
+            if t.get('value') is not None and str(t.get('value')).strip().upper() != 'NULL'
+        ]
+
+        request = rpc_objects.MediaWithTagsRequest(
+            file_uri=path,
+            file_type=file_type,
+            thumbnail_uri=thumbnail_path if thumbnail_path else path,
+            tags=tag_entries,
+        )
+
+        response = self.grpc_stub.createMediaWithTags(request)
+        return response
 
 
     def add_file(self, path: str, thumbnail_path: str = None):
@@ -102,7 +132,7 @@ class LoaderClient:
         else : request = rpc_objects.GetTagSetsRequest()
         response_iterator = self.grpc_stub.getTagSets(request)
         for response in response_iterator:
-            yield response.tagset
+            yield response  # FIX: yield wrapper complet pour que le CLI puisse appeler HasField("error")
 
     def add_tagset(self, name: str, tagtype_id: int):
         request = rpc_objects.CreateTagSetRequest(name=name, tagTypeId=tagtype_id)
@@ -140,7 +170,7 @@ class LoaderClient:
             
         response_iterator = self.grpc_stub.getTags(request)
         for response in response_iterator:
-            yield response.tag
+            yield response  # FIX: yield wrapper complet pour que le CLI puisse appeler HasField("error")
 
     def add_tag(self, tagset_id: int, tagtype_id: int, value):
         match tagtype_id:
@@ -246,7 +276,7 @@ class LoaderClient:
         request = rpc_objects.Empty()
         response_iterator = self.grpc_stub.getTaggings(request)
         for response in response_iterator:
-            yield response.tagging
+            yield response  # FIX: yield wrapper complet pour que le CLI puisse appeler HasField("error")
 
     def add_tagging(self, tag_id: int, media_id: int):
         request = rpc_objects.CreateTaggingRequest(
@@ -283,7 +313,7 @@ class LoaderClient:
             request = rpc_objects.GetHierarchiesRequest()
         response_iterator = self.grpc_stub.getHierarchies(request)
         for response in response_iterator:
-            yield response.hierarchy
+            yield response  # FIX: yield wrapper complet pour que le CLI puisse appeler HasField("error")
 
     def add_hierarchy(self, name: str, tagset_id: int):
         request = rpc_objects.CreateHierarchyRequest(
@@ -332,13 +362,36 @@ class LoaderClient:
         request = rpc_objects.GetNodesRequest(hierarchyId=hierarchy_id, tagId=tag_id, parentNodeId=parentnode_id)
         response_iterator = self.grpc_stub.getNodes(request)
         for response in response_iterator:
-            yield response.node
+            yield response  # FIX: yield wrapper complet pour que le CLI puisse appeler HasField("error")
     
     def delete_node(self, node_id: int):
         request = rpc_objects.IdRequest(id=node_id)
         response = self.grpc_stub.deleteNode(request)
         return f"Node {node_id} deleted."
     
+
+    #!================ Update functions ======================================================================
+
+    def change_tag_name(self, tagset_name: str, old_value: str, new_value: str):
+        """Rename a tag globally. All medias with this tag are affected."""
+        request = rpc_objects.ChangeTagNameRequest(
+            tagset_name=tagset_name,
+            tag_name=old_value,
+            new_name=new_value,
+        )
+        response = self.grpc_stub.changeTagName(request)
+        return response
+
+    def change_tagging(self, media_uri: str, tagset_name: str, old_value: str, new_value: str):
+        """Change the tag of a single media. Other medias are not affected."""
+        request = rpc_objects.ChangeTaggingRequest(
+            media_uri=media_uri,
+            tagset_name=tagset_name,
+            tag_name=old_value,
+            new_name=new_value,
+        )
+        response = self.grpc_stub.changeTagging(request)
+        return response
 
     #!================ DB management ======================================================================
 

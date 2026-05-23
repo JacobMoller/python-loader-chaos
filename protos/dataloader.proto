@@ -13,6 +13,8 @@ service DataLoader {
   rpc createMedia (Media) returns (Media) {}     // Create a single media with given URI, type and thumbnail URI
   rpc createMediaStream (stream Media) returns (stream CreateMediaStreamResponse) {} 
   // Create multiple medias at the same time in batches, returns amount added/error messages when a batch is added
+  rpc createMediaWithTags (MediaWithTagsRequest) returns (Media) {}
+  // Create a single media with all its tags in one call, then publish a single enriched RabbitMQ message
   rpc deleteMedia (IdRequest) returns (Empty) {}             // Delete a single media with the given ID
 
 	// -------------------------- TagSets
@@ -51,6 +53,10 @@ service DataLoader {
   rpc createNodeStream (stream CreateNodeRequest) returns (stream StreamingNodeResponse) {};    // NOT IMPLEMENTED
   rpc deleteNode (IdRequest) returns (Empty) {}            // Delete a single node with the given ID
   
+  // -------------------------- Updates
+  rpc changeTagName (ChangeTagNameRequest) returns (Empty) {};       // Rename a tag globally (all medias follow)
+  rpc changeTagging (ChangeTaggingRequest) returns (Empty) {};       // Change the tag of a single media within a tagset
+
   // Other
 	rpc resetDatabase (Empty) returns (Empty) {};
     // Reads and executes the DDL, which does 2 things: drop the schemas, and recreate all the tables and rules
@@ -100,6 +106,22 @@ message CreateMediaStreamResponse {
     int64 count = 1;
     google.rpc.Status error = 2;
   }
+}
+
+// TagEntry represents a single tag to attach to a media: tagset name, type and string value.
+// The value is always passed as a string; the server resolves the correct typed column from tagtype_id.
+message TagEntry {
+  string tagset_name = 1;   // Name of the tagset (will be created if it does not exist)
+  int64  tagtype_id  = 2;   // 1=alphanumerical, 2=timestamp, 3=time, 4=date, 5=numerical
+  string value       = 3;   // String representation of the tag value
+}
+
+// Request message for createMediaWithTags
+message MediaWithTagsRequest {
+  string file_uri      = 1;
+  int64  file_type     = 2;
+  string thumbnail_uri = 3;
+  repeated TagEntry tags = 4;   // All tags to attach to this media
 }
 
 // TagSets
@@ -232,6 +254,35 @@ message CreateTaggingStreamResponse {
   oneof message {
     int64 count = 1; // Number of taggings added in the batch
     google.rpc.Status error = 2; // Error message if any
+  }
+}
+
+// ChangeTagNameRequest — used to rename a tag value within a tagset
+message ChangeTagNameRequest {
+  string tagset_name = 1;   // Name of the tagset containing the tag
+  string tag_name    = 2;   // Current tag value
+  string new_name    = 3;   // New tag value (used as fallback if typed value not set)
+  oneof new_value {
+    AlphanumericalValue new_alphanumerical = 4;
+    TimeStampValue      new_timestamp      = 5;
+    TimeValue           new_time           = 6;
+    DateValue           new_date           = 7;
+    NumericalValue      new_numerical      = 8;
+  }
+}
+
+// ChangeTaggingRequest — used to update the tag associated to a media within a tagset
+message ChangeTaggingRequest {
+  string media_uri   = 1;   // URI of the media whose tagging must be updated
+  string tagset_name = 2;   // Name of the tagset
+  string tag_name    = 3;   // Current tag value
+  string new_name    = 4;   // New tag value (used as fallback if typed value not set)
+  oneof new_value {
+    AlphanumericalValue alphanumerical = 5;
+    TimeStampValue      timestamp      = 6;
+    TimeValue           time           = 7;
+    DateValue           date           = 8;
+    NumericalValue      numerical      = 9;
   }
 }
 

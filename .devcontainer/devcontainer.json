@@ -1,0 +1,31 @@
+{
+  "name": "Go DataLoader",
+
+  // Build the container from the Dockerfile above
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  "forwardPorts": [
+        50051,
+        8080
+    ],
+
+  "runArgs": [
+    "--publish", "50051:50051",
+    "--publish", "8080:8080",
+    "--env-file", ".devcontainer/devcontainer.env"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "go.toolsManagement.autoUpdate": true
+      },
+      "extensions": [
+        "golang.Go",
+        "zxh404.vscode-proto3"
+      ]
+    }
+  }
+}

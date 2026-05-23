@@ -1,6 +1,5 @@
 """
 CLI for interacting with the data loader. It is based on the Click python library, and handles most of the input checking.
-    
 """
 
 from __future__ import print_function
@@ -17,6 +16,8 @@ from filemgmt.filehandler import FileHandler
 from filemgmt.json_hr import JSONHandler
 from filemgmt.csv import CSVHandler
 from filemgmt.json_fast import FastJSONHandler
+from filemgmt.tagset_importer import TagsetImporter
+
 
 client = LoaderClient(grpc_host='localhost', grpc_port='50051')
 
@@ -181,6 +182,7 @@ def taggings():
             click.echo(f"\tGrpc error: {response.error.message}")
         else:
             click.echo(response)
+
 @get.command()
 @click.argument("id", type=int)
 def hierarchy(id): # type: ignore
@@ -224,7 +226,7 @@ def node(id): # type: ignore
 
 
 @get.command()
-@click.option("-h", "--hierarchy", "hierarchy_id", type=int, default=-1, help="Hierarchy filter (default: all)") 
+@click.option("-h", "--hierarchy", "hierarchy_id", type=int, default=-1, help="Hierarchy filter (default: all)")
 @click.option("-t", "--tag", "tag_id", type=int, default=-1, help="Tag filter (default: all)")
 @click.option("-p", "--parent", "parentnode_id", type=int, default=-1, help="Parent node filter (default: all)")
 def nodes(hierarchy_id, tag_id, parentnode_id):
@@ -240,6 +242,7 @@ def nodes(hierarchy_id, tag_id, parentnode_id):
             click.echo(response)
 
 #!================ ADD functions ======================================================================
+
 @cli.group()
 def add():
     """Add elements to the database model"""
@@ -268,7 +271,7 @@ def media(path): # type: ignore
     help="File formats to include (default: jpg, png, bmp, mp3, wav, flac, mp4, avi)",
 )
 def medias(path, formats): # type: ignore
-    """Add a multiple files from a specified directory to the database. Be careful, the same file location cannot be added twice to the database."""
+    """Add multiple files from a specified directory to the database. Be careful, the same file location cannot be added twice to the database."""
     if os.path.isdir(path):
         try:
             response_iterator = client.add_dir(path, formats)
@@ -289,7 +292,7 @@ def medias(path, formats): # type: ignore
 def tagset(name, type): # type: ignore
     """Create a new tagset with specified [name] and [type] (default = 1 - AlphaNumerical)
     Supported types are 1 - Alphanumerical, 2 - Timestamp, 3 - Time, 4 - Date, 5 - Numerical."""
-    if type not in range(1,6):
+    if type not in range(1, 6):
         raise click.BadParameter("Type doesn't exist")
     try:
         response = client.add_tagset('%s' % name, type)
@@ -314,7 +317,7 @@ def validate_format(value, type):
             return int(value)
         case _:
             raise click.BadParameter('Invalid type')
-        
+
     if not re.match(format_regex, value):
         raise click.BadParameter('Invalid format')
 
@@ -338,7 +341,7 @@ def tag(value, tagset_id, type_id): # type: ignore
 @add.command()
 @click.argument("media_id", type=int)
 @click.argument("tag_id", type=int)
-def tagging(tag_id, media_id): #type: ignore
+def tagging(tag_id, media_id): # type: ignore
     """Create a tagging between Media ID and Tag ID"""
     try:
         response = client.add_tagging(tag_id, media_id)
@@ -349,7 +352,7 @@ def tagging(tag_id, media_id): #type: ignore
 @add.command()
 @click.argument("name", type=str)
 @click.argument("tagset_id", type=int)
-def hierarchy(name, tagset_id): #type: ignore
+def hierarchy(name, tagset_id): # type: ignore
     """Create an empty hierarchy with given name and tagset_id"""
     try:
         response = client.add_hierarchy(name, tagset_id)
@@ -361,8 +364,8 @@ def hierarchy(name, tagset_id): #type: ignore
 @click.argument("tag_id", type=int)
 @click.argument("hierarchy_id", type=int)
 @click.argument("parentnode_id", type=int)
-def node(tag_id, hierarchy_id, parentnode_id): #type: ignore
-    """Create a hierarchy with given name, tagset_id and rootnode_id"""
+def node(tag_id, hierarchy_id, parentnode_id): # type: ignore
+    """Create a node with given tag_id, hierarchy_id and parentnode_id"""
     try:
         response = client.add_node(tag_id, hierarchy_id, parentnode_id)
         click.echo(response)
@@ -372,19 +375,104 @@ def node(tag_id, hierarchy_id, parentnode_id): #type: ignore
 @add.command()
 @click.argument("tag_id", type=int)
 @click.argument("hierarchy_id", type=int)
-def rootnode(tag_id, hierarchy_id): #type: ignore
-    """Create rootnode for given hierarchy"""
+def rootnode(tag_id, hierarchy_id): # type: ignore
+    """Create a root node for the given hierarchy"""
     try:
         response = client.add_rootnode(tag_id, hierarchy_id)
         click.echo(response)
     except RpcError as e:
         return click.echo(f"Grpc error: {e.details()}")
 
+#!================ UPDATE functions ======================================================================
+
+@cli.group()
+def update():
+    """Update tags and taggings in the database.
+
+    \b
+    Two update operations are available:
+      - tag-name : rename a tag globally (all medias follow)
+      - tagging  : change the tag of ONE specific media only
+    """
+    pass
+
+
+@update.command(name='tag-name')
+@click.argument("tagset_name", type=str)
+@click.argument("old_value", type=str)
+@click.argument("new_value", type=str)
+def tag_name(tagset_name, old_value, new_value):
+    """Rename a tag globally. ALL medias with this tag are affected.
+
+    \b
+    Examples:
+      loader update tag-name faces Unknown3 Alice
+        → The tag "Unknown3" becomes "Alice" everywhere in the database.
+        → Every media tagged "Unknown3" is now tagged "Alice".
+
+    \b
+      loader update tag-name Country "Czech Republic" Czechia
+        → All medias tagged "Czech Republic" are now tagged "Czechia".
+
+    \b
+    TAGSET_NAME : name of the tagset (e.g. "faces", "Country", "City")
+    OLD_VALUE   : current value of the tag
+    NEW_VALUE   : new value to assign
+
+    \b
+    Notifies plugins via RabbitMQ on 'tag_update.<tagset_name>'.
+    """
+    try:
+        response = client.change_tag_name(tagset_name, old_value, new_value)
+        click.echo(response)
+    except RpcError as e:
+        return click.echo(f"Grpc error: {e.details()}")
+
+
+@update.command(name='tagging')
+@click.argument("media_uri", type=str)
+@click.argument("tagset_name", type=str)
+@click.argument("old_value", type=str)
+@click.argument("new_value", type=str)
+def tagging(media_uri, tagset_name, old_value, new_value):
+    """Change the tag of ONE specific media. Other medias are NOT affected.
+
+    \b
+    Examples:
+      loader update tagging http://.../photo.jpg faces Unknown3 Bob
+        → Only photo.jpg switches from "Unknown3" to "Bob".
+        → Other medias tagged "Unknown3" stay unchanged.
+
+    \b
+      loader update tagging http://.../img_042.jpg City Dublin Cork
+        → Only img_042.jpg switches from "Dublin" to "Cork".
+        → Other medias tagged "Dublin" stay unchanged.
+        → The geodata plugin updates its local database for this media.
+
+    \b
+    MEDIA_URI   : URI of the media to update
+    TAGSET_NAME : name of the tagset (e.g. "faces", "Country", "City")
+    OLD_VALUE   : current tag value for this media
+    NEW_VALUE   : new tag value to assign (created if it doesn't exist)
+
+    \b
+    Notifies plugins via RabbitMQ on 'tagging_update.<tagset_name>'.
+    For geodata tagsets (Country, City, Location Type, POI Category),
+    the server also forwards to 'update_geodatas.*' so the geodata
+    plugin can update its local JSON database.
+    """
+    try:
+        response = client.change_tagging(media_uri, tagset_name, old_value, new_value)
+        click.echo(response)
+    except RpcError as e:
+        return click.echo(f"Grpc error: {e.details()}")
+
+
 #!================ DELETE functions ======================================================================
 
 @cli.group()
 def delete():
-    """Delete elements from database"""
+    """Delete elements from the database"""
     pass
 
 @delete.command()
@@ -414,44 +502,85 @@ def node(node_id):
         click.echo("Input error: index must be > 0")
 
 
-
 #!================ General functions ======================================================================
 
 @cli.command(name='import')
 @click.option(
-    "--format",
-    "-f",
+    "--format", "-f",
     default="json",
     help="Format of the import file. Currently supported formats: json, csv.",
 )
+@click.option(
+    "--lsc",
+    is_flag=True,
+    default=False,
+    help="Parse the CSV as an LSC dataset (header row with column names, one media per row).",
+)
+@click.option(
+    "--media-host",
+    default="http://localhost:5005",
+    show_default=True,
+    help="Base URL used to build media URIs when importing an LSC CSV.",
+)
+@click.option(
+    "--column-map",
+    "column_map",
+    default=None,
+    type=click.Path(exists=True),
+    help="Path to a JSON file overriding the default LSC column mapping.",
+)
 @click.argument("path", type=click.Path(exists=True))
-def import_command(format, path):
-    """Add tagsets, objects and tags from a setup file in the selected format."""
-    if os.path.isfile(path) & path.lower().endswith(format):
-        if format == "json":
-            fileHandler = JSONHandler()
-            fileHandler.importFile(path)
-        elif format == "csv":
-            fileHandler = CSVHandler()
-            fileHandler.importFile(path)
-        else:
-            click.echo("Error: format '%s' is not supported." % format)
+def import_command(format, lsc, media_host, column_map, path):
+    """Add tagsets, objects and tags from a setup file in the selected format.
+
+    \b
+    Standard CSV format:
+      Line 1 : tagset_name_1;tagset_type_1;tagset_name_2;tagset_type_2;...
+      Line N : media_path;tagset_index_1;value_1;tagset_index_2;value_2;...
+
+    \b
+    LSC CSV format (use --lsc flag):
+      Line 1 : minute_id,utc_time,local_time,timezone,lat,lon,...
+      Line N : 20150223_0000,UTC_2015-02-23_00:00,...
+      Media URI is built as: <media-host>/lsc/<YYYYMM>/<DD>/<minute_id>_000.jpg
+    """
+    if lsc and format != "csv":
+        click.echo("Error: --lsc flag is only valid with --format csv.")
+        return
+
+    if column_map is not None and not lsc:
+        click.echo("Error: --column-map is only valid with --lsc.")
+        return
+
+    if not os.path.isfile(path):
+        click.echo("Error: invalid file path.")
+        return
+
+    if not path.lower().endswith(format):
+        click.echo(f"Error: file extension does not match format '{format}'.")
+        return
+
+    if format == "json":
+        fileHandler = JSONHandler()
+        fileHandler.importFile(path)
+    elif format == "csv":
+        fileHandler = CSVHandler()
+        fileHandler.importFile(path, lsc=lsc, media_host=media_host, column_map=column_map)
     else:
-        click.echo("Error: invalid file path or format.")
+        click.echo(f"Error: format '{format}' is not supported.")
 
 
 @cli.command(name='export')
 @click.option(
-    "--format",
-    "-f",
+    "--format", "-f",
     default="json",
-    help="Format of the import file. Currently supported formats: json.",
+    help="Format of the export file. Currently supported formats: json.",
 )
 @click.argument("path", type=click.Path())
 def export_command(format, path):
-    """Export the current collection configuration to a file in specified format (default: json)."""
+    """Export the current collection configuration to a file in the specified format (default: json)."""
     if os.path.isdir(path):
-        # Generate the file name automatically
+        # Generate the file name automatically based on the current date
         dir_path = path
         file_id = 1
         today = datetime.datetime.today().strftime("%Y-%m-%d")
@@ -468,16 +597,15 @@ def export_command(format, path):
     else:
         click.echo("Error: format '%s' is not supported." % format)
         return
-    
+
     fileHandler.exportFile(path)
     click.echo("File created at %s" % path)
-
 
 
 @cli.command()
 @click.argument("path", type=click.Path(exists=True))
 def import_fast(path):
-    """Add tagsets, objects and tags from a setup file in the selected format."""
+    """Add tagsets, objects and tags from a JSON setup file. Optimised for speed."""
     if os.path.isfile(path) & path.lower().endswith('json'):
         fileHandler = FastJSONHandler()
         fileHandler.importFile(path)
@@ -487,10 +615,9 @@ def import_fast(path):
 @cli.command()
 @click.argument("path", type=click.Path())
 def export_fast(path):
-    """Export the current collection configuration. Human-readability is sacrificed for more speed."""
-    
+    """Export the current collection configuration. Human-readability is sacrificed for speed."""
     if os.path.isdir(path):
-        # Generate the file name automatically
+        # Generate the file name automatically based on the current date
         dir_path = path
         file_id = 1
         today = datetime.datetime.today().strftime("%Y-%m-%d")
@@ -505,7 +632,6 @@ def export_fast(path):
     click.echo("File created at %s" % path)
 
 
-
 @cli.command()
 def reset():
     """Reset the database"""
@@ -517,6 +643,47 @@ def reset():
             click.echo(response)
         except RpcError as e:
             return click.echo(f"Grpc error: {e.details()}")
+
+
+@cli.command(name='import_tagsets')
+@click.option(
+    "--format", "-f",
+    default=None,
+    type=click.Choice(["csv", "json"], case_sensitive=False),
+    help="Format of the file (csv or json). Auto-detected from the file extension if omitted.",
+)
+@click.argument("path", type=click.Path(exists=True))
+def import_tagsets_command(format, path):
+    """Import tagsets from a CSV or JSON file without creating any media.
+
+    \b
+    Expected CSV format (comma or semicolon separator, with or without header):
+      name,type
+      Day of week (number),numerical
+      Timestamp UTC,timestamp
+
+    \b
+    Expected JSON format:
+      [
+        {"name": "Day of week (number)", "type": "numerical"},
+        {"name": "Timestamp UTC",        "type": "timestamp"}
+      ]
+
+    \b
+    Accepted types: alphanumerical, timestamp, time, date, numerical
+    """
+    # Auto-detect format from file extension if not provided
+    if format is None:
+        if path.lower().endswith('.json'):
+            format = 'json'
+        elif path.lower().endswith('.csv'):
+            format = 'csv'
+        else:
+            click.echo("Error: unable to detect format. Use -f csv or -f json.")
+            return
+
+    importer = TagsetImporter()
+    importer.importFile(path)
 
 
 if __name__ == "__main__":

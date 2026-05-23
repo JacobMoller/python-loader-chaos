@@ -1,0 +1,13 @@
+[
+    "person", "man", "woman", "child", "face", "hand",
+    "car", "bus", "truck", "bicycle", "motorcycle", "airplane", "taxi",
+    "laptop", "computer", "computer monitor", "screen", "keyboard", "mouse",
+    "tablet", "tablet computer", "phone", "cell phone", "book",
+    "desk", "table", "chair", "sofa", "bed", "lamp", "clock", "door", "window",
+    "refrigerator", "fridge", "washing machine", "coffee machine", "television", "tv",
+    "cup", "mug", "glass", "bottle", "plate", "bowl", "food", "meal",
+    "bread", "salad", "cake", "pie", "coffee", "tea", "beer",
+    "tree", "grass", "flower", "house", "road", "footpath",
+    "shop", "store", "bank", "hotel", "kitchen", "bathroom", "bedroom",
+    "toy", "picture", "painting"
+]

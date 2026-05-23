@@ -1,0 +1,14 @@
+{
+    "utc_time":      {"tagset_name": "Timestamp UTC",  "tagtype_id": 2},
+    "local_time":    {"tagset_name": "Timestamp LOC",  "tagtype_id": 2},
+    "timezone":      {"tagset_name": "Timezone",       "tagtype_id": 1},
+    "lat":           {"tagset_name": "Latitude",       "tagtype_id": 1},
+    "lon":           {"tagset_name": "Longitude",      "tagtype_id": 1},
+    "semantic_name": {"tagset_name": "Semantic Name",  "tagtype_id": 1},
+    "elevation":     {"tagset_name": "Elevation",      "tagtype_id": 1},
+    "speed":         {"tagset_name": "Speed",          "tagtype_id": 1},
+    "heart":         {"tagset_name": "Heart",          "tagtype_id": 1},
+    "calories":      {"tagset_name": "Calories",       "tagtype_id": 1},
+    "activity_type": {"tagset_name": "Activity Type",  "tagtype_id": 1},
+    "steps":         {"tagset_name": "Steps",          "tagtype_id": 1}
+}

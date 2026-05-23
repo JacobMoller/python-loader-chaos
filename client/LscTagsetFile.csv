@@ -1,0 +1,37 @@
+ImageNet,,alphanumerical
+Collection,,alphanumerical
+Timestamp UTC,,timestamp
+Timestamp LOC,,timestamp
+Time,,time
+Date,,date
+Timezone,,alphanumerical
+Elevation,,alphanumerical
+Heart,,alphanumerical
+Calories,,alphanumerical
+Distance,,alphanumerical
+Day of week (number),,numerical
+Day of week (string),,alphanumerical
+Day within month,,numerical
+Day within year,,numerical
+Month (number),,numerical
+Month (string),,alphanumerical
+Year,,numerical
+Year Month,,alphanumerical
+Hour,,numerical
+Minute,,numerical
+Artist,,alphanumerical
+Song,,alphanumerical
+Album,,alphanumerical
+Sleep level,,alphanumerical
+Sleep efficiency,,alphanumerical
+Caption,,alphanumerical
+Latitude,,alphanumerical
+Longitude,,alphanumerical
+Semantic Name,,alphanumerical
+Heart Rate Confidence,,alphanumerical
+Awake,,alphanumerical
+Minutes To Fall Asleep,,numerical
+Minutes Asleep,,numerical
+Minutes Awake,,numerical
+Minutes After Wakeup,,numerical
+Time In Bed,,numerical
