@@ -13,4 +13,4 @@ lsc22.json
 server/vbs_loader
 
 # ignore the client virtual environment
-client/client_venv/*
+client/client_venv/
