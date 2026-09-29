@@ -1732,7 +1732,11 @@ func (s *DataLoaderServer) DeleteNode(ctx context.Context, request *pb.IdRequest
 
 // !================================= Other
 func (s *DataLoaderServer) ResetDatabase(ctx context.Context, request *pb.Empty) (*pb.Empty, error) {
-	ddlSQL, err := os.ReadFile("../../ddl.sql")
+	ddlPath := os.Getenv("DDL_PATH")
+	if ddlPath == "" {
+		ddlPath = "../../ddl.sql"
+	}
+	ddlSQL, err := os.ReadFile(ddlPath)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to read DDL file: %s", err)
 	}
