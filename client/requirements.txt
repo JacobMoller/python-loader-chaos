@@ -2,9 +2,11 @@ certifi==2023.7.22
 charset-normalizer==3.2.0
 click==8.1.7
 colorama==0.4.6
-grpcio==1.58.0
-grpcio-tools==1.58.0
+grpcio==1.78.0
+grpcio-tools==1.78.0
+googleapis-common-protos==1.72.0
 idna==3.4
-protobuf==4.24.3
+protobuf==6.31.1
 requests==2.31.0
 urllib3==2.0.4
+tqdm==4.66.2
