@@ -43,7 +43,7 @@ The plugins in `go-server/plugins` import `rabbitMQ_helpers`, which Docker copie
 ```bash
 python3 tools/arch_graph.py --depth 3 --ignore client/tests --ignore tools \
   --ignore go-server/dataloader --search-path go-server/rabbitMQ --hide-isolated \
-  -o graphs/depth3.html
+  -o graphs/tools/depth3.html
 ```
 
 ## Limitations

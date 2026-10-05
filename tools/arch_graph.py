@@ -14,6 +14,9 @@ import os
 import subprocess
 from collections import Counter
 
+folder_color = "#B0B0B0"  # color for folders in the graph
+file_color = "#4C8EDA"
+
 # ---------------------------------------------------------------- file discovery
 
 def find_source_files(root, extra_ignores):
@@ -212,10 +215,10 @@ def write_html(nodes, edges, loc, sources, depth, out_path):
     vis_nodes = []
     for node, file_count in sorted(nodes.items()):
         if node in source_set:
-            color = "#4C8EDA"
+            color = file_color
             tip = f"{node} ({loc[node]} LOC)"
         else:
-            color = "#B0B0B0"
+            color = folder_color
             tip = f"{node}/ ({file_count} source files, {loc[node]} LOC)"
         vis_nodes.append({"id": node, "label": node, "title": tip, "color": color,
                           "value": loc[node]})
@@ -257,3 +260,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
