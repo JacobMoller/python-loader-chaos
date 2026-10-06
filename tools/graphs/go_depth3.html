@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Architecture graph</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; font-family: sans-serif; background: #fff; }
+  #graph { position: absolute; inset: 0; }
+  #legend { position: absolute; top: 10px; left: 10px; background: #fffe; padding: 8px 12px;
+            border: 1px solid #ddd; border-radius: 6px; font-size: 13px; z-index: 1; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div id="legend">
+  <b>Go dependencies (depth 10)</b><br>
+  <span class="dot" style="background:#B0B0B0"></span>Go package (folder)<br>
+  Node size = lines of code<br>
+  Edge width and label = number of importing files
+</div>
+<div id="graph"></div>
+<script>
+const data = {"nodes": [{"id": "go-server/dataloader", "label": "go-server/dataloader", "title": "go-server/dataloader/ (2 source files, 4079 LOC)", "color": "#B0B0B0", "value": 4079}, {"id": "go-server/media_downloader", "label": "go-server/media_downloader", "title": "go-server/media_downloader/ (1 source files, 348 LOC)", "color": "#B0B0B0", "value": 348}, {"id": "go-server/media_downloader/gen/go", "label": "go-server/media_downloader/gen/go", "title": "go-server/media_downloader/gen/go/ (2 source files, 368 LOC)", "color": "#B0B0B0", "value": 368}, {"id": "go-server/plugins/activity", "label": "go-server/plugins/activity", "title": "go-server/plugins/activity/ (1 source files, 72 LOC)", "color": "#B0B0B0", "value": 72}, {"id": "go-server/plugins/date_hierarchy_builder", "label": "go-server/plugins/date_hierarchy_builder", "title": "go-server/plugins/date_hierarchy_builder/ (1 source files, 96 LOC)", "color": "#B0B0B0", "value": 96}, {"id": "go-server/plugins/exif_extractor", "label": "go-server/plugins/exif_extractor", "title": "go-server/plugins/exif_extractor/ (1 source files, 104 LOC)", "color": "#B0B0B0", "value": 104}, {"id": "go-server/plugins/location_info", "label": "go-server/plugins/location_info", "title": "go-server/plugins/location_info/ (1 source files, 145 LOC)", "color": "#B0B0B0", "value": 145}, {"id": "go-server/plugins/time_info", "label": "go-server/plugins/time_info", "title": "go-server/plugins/time_info/ (1 source files, 132 LOC)", "color": "#B0B0B0", "value": 132}, {"id": "go-server/rabbitMQ", "label": "go-server/rabbitMQ", "title": "go-server/rabbitMQ/ (1 source files, 141 LOC)", "color": "#B0B0B0", "value": 141}, {"id": "go-server/server", "label": "go-server/server", "title": "go-server/server/ (8 source files, 3237 LOC)", "color": "#B0B0B0", "value": 3237}], "edges": [{"from": "go-server/server", "to": "go-server/dataloader", "label": "8", "value": 8, "title": "go-server/server \u2192 go-server/dataloader: 8 importing file(s)"}, {"from": "go-server/plugins/date_hierarchy_builder", "to": "go-server/rabbitMQ", "label": "1", "value": 1, "title": "go-server/plugins/date_hierarchy_builder \u2192 go-server/rabbitMQ: 1 importing file(s)"}, {"from": "go-server/plugins/exif_extractor", "to": "go-server/rabbitMQ", "label": "1", "value": 1, "title": "go-server/plugins/exif_extractor \u2192 go-server/rabbitMQ: 1 importing file(s)"}, {"from": "go-server/plugins/time_info", "to": "go-server/rabbitMQ", "label": "1", "value": 1, "title": "go-server/plugins/time_info \u2192 go-server/rabbitMQ: 1 importing file(s)"}, {"from": "go-server/server", "to": "go-server/rabbitMQ", "label": "1", "value": 1, "title": "go-server/server \u2192 go-server/rabbitMQ: 1 importing file(s)"}, {"from": "go-server/media_downloader", "to": "go-server/media_downloader/gen/go", "label": "1", "value": 1, "title": "go-server/media_downloader \u2192 go-server/media_downloader/gen/go: 1 importing file(s)"}, {"from": "go-server/plugins/activity", "to": "go-server/rabbitMQ", "label": "1", "value": 1, "title": "go-server/plugins/activity \u2192 go-server/rabbitMQ: 1 importing file(s)"}, {"from": "go-server/plugins/location_info", "to": "go-server/rabbitMQ", "label": "1", "value": 1, "title": "go-server/plugins/location_info \u2192 go-server/rabbitMQ: 1 importing file(s)"}]};
+new vis.Network(document.getElementById("graph"),
+  { nodes: new vis.DataSet(data.nodes), edges: new vis.DataSet(data.edges) },
+  {
+    nodes: { shape: "dot", font: { size: 14 }, scaling: { min: 8, max: 60 } },
+    edges: { arrows: "to", color: { color: "#999", highlight: "#e66" },
+             scaling: { min: 1, max: 12 },
+             font: { size: 11, align: "middle" }, smooth: { type: "dynamic" } },
+    physics: { solver: "forceAtlas2Based", stabilization: { iterations: 300 } },
+    interaction: { hover: true, navigationButtons: true },
+  });
+</script>
+</body>
+</html>
