@@ -1,0 +1,119 @@
+@startuml
+namespace activity {
+}
+namespace date_hierarchy_builder {
+}
+namespace exif_extractor {
+}
+namespace location_info {
+}
+namespace time_info {
+}
+namespace media_downloader {
+    class "downloadResult" << (S,Aquamarine) >> {
+        - filename string
+        - size int64
+        - statusCode int
+
+    }
+    class "media_downloader.ressourceState" << (T, #FF7700) >>  {
+    }
+    class "ressourceEntry" << (S,Aquamarine) >> {
+        - requestCounter int
+        - path string
+        - state ressourceState
+        - timer *time.Timer
+        - size int64
+        - elem *list.Element
+
+        - addRequest() 
+        - removeRequest() 
+
+    }
+    class "server" << (S,Aquamarine) >> {
+        + RequestMedia(ctx context.Context, req *go.RequestMediaRequest) (*go.RequestMediaResponse, error)
+        + ReleaseMedia(ctx context.Context, req *go.ReleaseMediaRequest) (*go.ReleaseMediaResponse, error)
+
+    }
+}
+namespace rabbitMQ {
+    class "Producer" << (S,Aquamarine) >> {
+        - conn *amqp091-go.Connection
+        - channel *amqp091-go.Channel
+        - ctx context.Context
+        - cancel context.CancelFunc
+
+        + ConnexionEnd() 
+
+    }
+}
+namespace server {
+    class "DataLoaderServer" << (S,Aquamarine) >> {
+        - db *sql.DB
+
+        + ResetDatabase(ctx context.Context, request *dataloader.Empty) (*dataloader.Empty, error)
+        + GetHierarchies(request *dataloader.GetHierarchiesRequest, stream dataloader.DataLoader_GetHierarchiesServer) error
+        + GetHierarchy(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Hierarchy, error)
+        + CreateHierarchy(ctx context.Context, request *dataloader.CreateHierarchyRequest) (*dataloader.Hierarchy, error)
+        + GetMedias(request *dataloader.GetMediasRequest, stream dataloader.DataLoader_GetMediasServer) error
+        + GetMediaById(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Media, error)
+        + GetMediaByURI(ctx context.Context, request *dataloader.GetMediaByURIRequest) (*dataloader.Media, error)
+        + CreateMedia(ctx context.Context, request *dataloader.Media) (*dataloader.Media, error)
+        + CreateMedias(stream dataloader.DataLoader_CreateMediaStreamServer) error
+        + DeleteMedia(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Empty, error)
+        + GetNode(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Node, error)
+        + GetNodes(request *dataloader.GetNodesRequest, stream dataloader.DataLoader_GetNodesServer) error
+        + CreateNode(ctx context.Context, request *dataloader.CreateNodeRequest) (*dataloader.Node, error)
+        + DeleteNode(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Empty, error)
+        + Close() 
+        + GetMedias(request *dataloader.GetMediasRequest, stream dataloader.DataLoader_GetMediasServer) error
+        + GetMediaById(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Media, error)
+        + GetMediaByURI(ctx context.Context, request *dataloader.GetMediaByURIRequest) (*dataloader.Media, error)
+        + CreateMedia(ctx context.Context, request *dataloader.Media) (*dataloader.Media, error)
+        + CreateMediaStream(stream dataloader.DataLoader_CreateMediaStreamServer) error
+        + CreateMediaWithTags(ctx context.Context, request *dataloader.MediaWithTagsRequest) (*dataloader.Media, error)
+        + DeleteMedia(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Empty, error)
+        + GetTagSets(request *dataloader.GetTagSetsRequest, stream dataloader.DataLoader_GetTagSetsServer) error
+        + GetTagSetById(ctx context.Context, request *dataloader.IdRequest) (*dataloader.TagSet, error)
+        + GetTagSetByName(ctx context.Context, request *dataloader.GetTagSetRequestByName) (*dataloader.TagSet, error)
+        + CreateTagSet(ctx context.Context, request *dataloader.CreateTagSetRequest) (*dataloader.TagSet, error)
+        + GetTags(request *dataloader.GetTagsRequest, stream dataloader.DataLoader_GetTagsServer) error
+        + GetTag(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Tag, error)
+        + CreateTag(ctx context.Context, request *dataloader.CreateTagRequest) (*dataloader.Tag, error)
+        + ChangeTagName(ctx context.Context, request *dataloader.ChangeTagNameRequest) (*dataloader.Empty, error)
+        + GetTaggings(request *dataloader.Empty, stream dataloader.DataLoader_GetTaggingsServer) error
+        + GetMediasWithTag(ctx context.Context, request *dataloader.IdRequest) (*dataloader.RepeatedIdResponse, error)
+        + GetMediaTags(ctx context.Context, request *dataloader.IdRequest) (*dataloader.RepeatedIdResponse, error)
+        + CreateTagging(ctx context.Context, request *dataloader.CreateTaggingRequest) (*dataloader.Tagging, error)
+        + CreateTaggingStream(stream dataloader.DataLoader_CreateTaggingStreamServer) error
+        + ChangeTagging(ctx context.Context, request *dataloader.ChangeTaggingRequest) (*dataloader.Empty, error)
+        + GetHierarchies(request *dataloader.GetHierarchiesRequest, stream dataloader.DataLoader_GetHierarchiesServer) error
+        + GetHierarchy(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Hierarchy, error)
+        + CreateHierarchy(ctx context.Context, request *dataloader.CreateHierarchyRequest) (*dataloader.Hierarchy, error)
+        + GetNode(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Node, error)
+        + GetNodes(request *dataloader.GetNodesRequest, stream dataloader.DataLoader_GetNodesServer) error
+        + CreateNode(ctx context.Context, request *dataloader.CreateNodeRequest) (*dataloader.Node, error)
+        + DeleteNode(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Empty, error)
+        + ResetDatabase(ctx context.Context, request *dataloader.Empty) (*dataloader.Empty, error)
+        + GetTags(request *dataloader.GetTagsRequest, stream dataloader.DataLoader_GetTagsServer) error
+        + GetTag(ctx context.Context, request *dataloader.IdRequest) (*dataloader.Tag, error)
+        + CreateTag(ctx context.Context, request *dataloader.CreateTagRequest) (*dataloader.Tag, error)
+        + GetTaggings(request *dataloader.Empty, stream dataloader.DataLoader_GetTaggingsServer) error
+        + GetMediasWithTag(ctx context.Context, request *dataloader.IdRequest) (*dataloader.RepeatedIdResponse, error)
+        + GetMediaTags(ctx context.Context, request *dataloader.IdRequest) (*dataloader.RepeatedIdResponse, error)
+        + CreateTagging(ctx context.Context, request *dataloader.CreateTaggingRequest) (*dataloader.Tagging, error)
+        + CreateTaggingStream(stream dataloader.DataLoader_CreateTaggingStreamServer) error
+        + GetTagSets(request *dataloader.GetTagSetsRequest, stream dataloader.DataLoader_GetTagSetsServer) error
+        + GetTagSetById(ctx context.Context, request *dataloader.IdRequest) (*dataloader.TagSet, error)
+        + GetTagSetByName(ctx context.Context, request *dataloader.GetTagSetRequestByName) (*dataloader.TagSet, error)
+        + CreateTagSet(ctx context.Context, request *dataloader.CreateTagSetRequest) (*dataloader.TagSet, error)
+
+    }
+}
+"__builtin__.int" #.. "media_downloader.ressourceState"
+"go.UnimplementedMediaDownloaderServer" *-- "media_downloader.server"
+"dataloader.UnimplementedDataLoaderServer" *-- "server.DataLoaderServer"
+
+
+
+@enduml
