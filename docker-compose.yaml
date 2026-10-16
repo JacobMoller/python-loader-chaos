@@ -121,6 +121,9 @@ services:
     env_file:
       - "go-server/rabbitMQ/rabbitMQ.env"
       - "go-server/media_downloader/media_downloader.env"
+    environment:
+      # No media-orchestrator in this compose file, so listen on media.* directly
+      STANDALONE_MODE: "true"
     volumes:
       - medias:/app/medias
       - downloaded-medias:/app/downloaded-medias
@@ -160,68 +163,68 @@ services:
   #     rabbitmq:
   #       condition: service_healthy
 
-  captioning:
-    container_name: plugin-captioning
-    # profiles: ["plugins"]
-    platform: linux/amd64
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/captioning/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-      - "go-server/media_downloader/media_downloader.env"
-    volumes:
-      - ./model_cache:/root/.cache
-      - medias:/app/medias
-      - downloaded-medias:/app/downloaded-medias
-    depends_on:
-      media-downloader:
-        condition: service_healthy
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # captioning:
+  #   container_name: plugin-captioning
+  #   # profiles: ["plugins"]
+  #   platform: linux/amd64
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/captioning/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #     - "go-server/media_downloader/media_downloader.env"
+  #   volumes:
+  #     - ./model_cache:/root/.cache
+  #     - medias:/app/medias
+  #     - downloaded-medias:/app/downloaded-medias
+  #   depends_on:
+  #     media-downloader:
+  #       condition: service_healthy
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
-  classifier:
-    container_name: plugin-classifier
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/classifier/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-      - "go-server/media_downloader/media_downloader.env"
-    volumes:
-      - medias:/app/medias
-      - downloaded-medias:/app/downloaded-medias
-    depends_on:
-      media-downloader:
-        condition: service_healthy
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # classifier:
+  #   container_name: plugin-classifier
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/classifier/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #     - "go-server/media_downloader/media_downloader.env"
+  #   volumes:
+  #     - medias:/app/medias
+  #     - downloaded-medias:/app/downloaded-medias
+  #   depends_on:
+  #     media-downloader:
+  #       condition: service_healthy
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
-  face-recognition:
-    container_name: plugin-face-recognition
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/face_recognition/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-      - "go-server/media_downloader/media_downloader.env"
-    volumes:
-      - medias:/app/medias
-      - downloaded-medias:/app/downloaded-medias
-      - known_faces:/app/known_faces
-    depends_on:
-      media-downloader:
-        condition: service_healthy
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # face-recognition:
+  #   container_name: plugin-face-recognition
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/face_recognition/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #     - "go-server/media_downloader/media_downloader.env"
+  #   volumes:
+  #     - medias:/app/medias
+  #     - downloaded-medias:/app/downloaded-medias
+  #     - known_faces:/app/known_faces
+  #   depends_on:
+  #     media-downloader:
+  #       condition: service_healthy
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
   date-hierarchy-builder:
     container_name: plugin-date-hierarchy-builder

@@ -19,7 +19,7 @@ from filemgmt.json_fast import FastJSONHandler
 from filemgmt.tagset_importer import TagsetImporter
 
 
-client = LoaderClient(grpc_host='localhost', grpc_port='50051')
+client = LoaderClient()
 
 SERVER_ADDRESS = "localhost:50051"
 
@@ -278,7 +278,9 @@ def medias(path, formats): # type: ignore
         except RpcError as e:
             return click.echo(f"Grpc error: {e.details()}")
         for response in response_iterator:
-            if response.HasField("error"):
+            if isinstance(response, str):
+                click.echo(response)
+            elif response.HasField("error"):
                 click.echo(f"\tGrpc error: {response.error.message}")
             else:
                 click.echo(response)
