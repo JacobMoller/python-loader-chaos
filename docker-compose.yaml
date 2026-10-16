@@ -149,6 +149,31 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  color-detector:
+    container_name: plugin-color-detector
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/color_detector/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      MEDIA_DOWNLOADER_TARGET: media-downloader:50052
+      # Dataloader gRPC server, used to look up the tag type of the tagset
+      GRPC_HOST: go-server
+      GRPC_PORT: 50051
+    volumes:
+      # Same mount paths as media-downloader, so the paths it returns resolve here
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # location-info:
   #   container_name: plugin-location-info
   #   # profiles: ["plugins"]
