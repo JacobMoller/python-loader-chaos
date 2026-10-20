@@ -174,6 +174,50 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  media-orchestrator:
+    container_name: media-orchestrator
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/media_orchestrator/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      GRPC_TARGET: media-downloader:50052
+      # exif-extractor runs in STANDALONE_MODE, so don't dispatch to it
+      EXIF_STANDALONE: "true"
+      # Counts ACKs for exif + caption + yolo + color (4), minus 1 for standalone exif.
+      # captioning and classifier (yolo) are not running, so 2 is used to wait for color only.
+      BASE_EXPECTED_ACKS: "2"
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  color-detector-orchestrated:
+    container_name: plugin-color-detector-orchestrated
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/color_detector_orchestrated/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      # Dataloader gRPC server, used to look up the tag type of the tagset
+      GRPC_HOST: go-server
+      GRPC_PORT: 50051
+    volumes:
+      # Same mount paths as media-downloader, so the MediaPath from the orchestrator resolves here
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-orchestrator:
+        condition: service_started
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # location-info:
   #   container_name: plugin-location-info
   #   # profiles: ["plugins"]
