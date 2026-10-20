@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # =========================
 # CONFIG
 # =========================
-BASE_EXPECTED_ACKS = int(os.environ.get("BASE_EXPECTED_ACKS", "3"))  # exif + caption + yolo
+BASE_EXPECTED_ACKS = int(os.environ.get("BASE_EXPECTED_ACKS", "4"))  # exif + caption + yolo + color
 ACK_TIMEOUT        = int(os.environ.get("ACK_TIMEOUT", "300"))       # seconds before giving up on a media
 
 GRPC_TARGET      = os.environ.get("GRPC_TARGET", "media-downloader:50052")
@@ -41,7 +41,7 @@ HEALTH_CHECK_INTERVAL = 30
 EXIF_STANDALONE = os.environ.get("EXIF_STANDALONE", "false").lower() in ("true", "1", "yes")
 
 # Build dispatch keys dynamically based on which plugins are orchestrated
-_ALL_DISPATCH_KEYS = ["process.exif", "process.caption", "process.yolo"]
+_ALL_DISPATCH_KEYS = ["process.exif", "process.caption", "process.yolo", "process.color"]
 DISPATCH_KEYS = [k for k in _ALL_DISPATCH_KEYS if not (k == "process.exif" and EXIF_STANDALONE)]
 
 # Adjust expected ACKs: subtract 1 for each standalone plugin
