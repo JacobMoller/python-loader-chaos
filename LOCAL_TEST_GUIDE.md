@@ -48,9 +48,9 @@ Copy your photos into a folder inside `python-loader-chaos/medias/`, e.g. `media
 In `python-loader-chaos/`:
 
 ```bash
-docker compose --profile loader up --build
+docker compose up --build
 ```
-Builds and starts the database, RabbitMQ, go-server, media-downloader and plugins, and shows their logs in this terminal. Leave it running and use a new terminal for the next steps. Wait until the logs calm down (go-server is healthy) before continuing.
+`--build` rebuilds the images so code changes (e.g. to a plugin) are picked up; without it, images that already exist are reused. Builds and starts the database, RabbitMQ, go-server, media-downloader and plugins, and shows their logs in this terminal. Leave it running and use a new terminal for the next steps. Wait until the logs calm down (go-server is healthy) before continuing.
 
 ---
 
