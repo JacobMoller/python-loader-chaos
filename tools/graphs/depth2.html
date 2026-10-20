@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Architecture graph</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; font-family: sans-serif; background: #fff; }
+  #graph { position: absolute; inset: 0; }
+  #legend { position: absolute; top: 10px; left: 10px; background: #fffe; padding: 8px 12px;
+            border: 1px solid #ddd; border-radius: 6px; font-size: 13px; z-index: 1; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div id="legend">
+  <b>Python dependencies (depth 2)</b><br>
+  <span class="dot" style="background:#4C8EDA"></span>Python file<br><span class="dot" style="background:#B0B0B0"></span>Folder<br>
+  Node size = lines of code<br>
+  Edge width and label = number of importing files
+</div>
+<div id="graph"></div>
+<script>
+const data = {"nodes": [{"id": "client/cli.py", "label": "client/cli.py", "title": "client/cli.py (591 LOC)", "color": "#4C8EDA", "value": 591}, {"id": "client/dataloader_pb2.py", "label": "client/dataloader_pb2.py", "title": "client/dataloader_pb2.py (118 LOC)", "color": "#4C8EDA", "value": 118}, {"id": "client/dataloader_pb2_grpc.py", "label": "client/dataloader_pb2_grpc.py", "title": "client/dataloader_pb2_grpc.py (1322 LOC)", "color": "#4C8EDA", "value": 1322}, {"id": "client/filemgmt", "label": "client/filemgmt", "title": "client/filemgmt/ (7 source files, 1167 LOC)", "color": "#B0B0B0", "value": 1167}, {"id": "client/grpc_client.py", "label": "client/grpc_client.py", "title": "client/grpc_client.py (340 LOC)", "color": "#4C8EDA", "value": 340}, {"id": "client/setup.py", "label": "client/setup.py", "title": "client/setup.py (13 LOC)", "color": "#4C8EDA", "value": 13}, {"id": "client/sysmon.py", "label": "client/sysmon.py", "title": "client/sysmon.py (439 LOC)", "color": "#4C8EDA", "value": 439}, {"id": "go-server/dataloader", "label": "go-server/dataloader", "title": "go-server/dataloader/ (2 source files, 1440 LOC)", "color": "#B0B0B0", "value": 1440}, {"id": "go-server/media_downloader", "label": "go-server/media_downloader", "title": "go-server/media_downloader/ (2 source files, 161 LOC)", "color": "#B0B0B0", "value": 161}, {"id": "go-server/plugins", "label": "go-server/plugins", "title": "go-server/plugins/ (8 source files, 2289 LOC)", "color": "#B0B0B0", "value": 2289}, {"id": "go-server/rabbitMQ", "label": "go-server/rabbitMQ", "title": "go-server/rabbitMQ/ (1 source files, 59 LOC)", "color": "#B0B0B0", "value": 59}], "edges": [{"from": "go-server/plugins", "to": "go-server/rabbitMQ", "label": "8", "value": 8, "title": "go-server/plugins \u2192 go-server/rabbitMQ: 8 importing file(s)"}, {"from": "client/filemgmt", "to": "client/grpc_client.py", "label": "4", "value": 4, "title": "client/filemgmt \u2192 client/grpc_client.py: 4 importing file(s)"}, {"from": "client/dataloader_pb2_grpc.py", "to": "client/dataloader_pb2.py", "label": "1", "value": 1, "title": "client/dataloader_pb2_grpc.py \u2192 client/dataloader_pb2.py: 1 importing file(s)"}, {"from": "client/grpc_client.py", "to": "client/dataloader_pb2_grpc.py", "label": "1", "value": 1, "title": "client/grpc_client.py \u2192 client/dataloader_pb2_grpc.py: 1 importing file(s)"}, {"from": "client/cli.py", "to": "client/grpc_client.py", "label": "1", "value": 1, "title": "client/cli.py \u2192 client/grpc_client.py: 1 importing file(s)"}, {"from": "client/grpc_client.py", "to": "client/dataloader_pb2.py", "label": "1", "value": 1, "title": "client/grpc_client.py \u2192 client/dataloader_pb2.py: 1 importing file(s)"}, {"from": "client/cli.py", "to": "client/filemgmt", "label": "5", "value": 5, "title": "client/cli.py \u2192 client/filemgmt: 5 importing file(s)"}]};
+new vis.Network(document.getElementById("graph"),
+  { nodes: new vis.DataSet(data.nodes), edges: new vis.DataSet(data.edges) },
+  {
+    nodes: { shape: "dot", font: { size: 14 }, scaling: { min: 8, max: 60 } },
+    edges: { arrows: "to", color: { color: "#999", highlight: "#e66" },
+             scaling: { min: 1, max: 12 },
+             font: { size: 11, align: "middle" }, smooth: { type: "dynamic" } },
+    physics: { solver: "forceAtlas2Based", stabilization: { iterations: 300 } },
+    interaction: { hover: true, navigationButtons: true },
+  });
+</script>
+</body>
+</html>
