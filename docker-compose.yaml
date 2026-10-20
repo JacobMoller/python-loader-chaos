@@ -1,4 +1,4 @@
-services: 
+services:
   db:
     container_name: db
     image: postgres:14.1-alpine
@@ -19,7 +19,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-
 
   rabbitmq:
     container_name: rabbitmq
@@ -55,8 +54,12 @@ services:
       SV_HOST: 0.0.0.0
       SV_PORT: 50051
       BATCH_SIZE: 5000
+      DDL_PATH: /app/ddl.sql
+    volumes:
+      # Used by the ResetDatabase gRPC call (loader reset)
+      - ./ddl.sql:/app/ddl.sql:ro
     links:
-     - db
+      - db
     restart: always
     depends_on:
       rabbitmq:
@@ -70,8 +73,6 @@ services:
       retries: 5
       start_period: 10s
 
-  
-      
   client:
     container_name: python-client
     build: ./client
@@ -143,7 +144,7 @@ services:
       go-server:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy 
+        condition: service_healthy
 
   # location-info:
   #   container_name: plugin-location-info
@@ -157,11 +158,12 @@ services:
   #     go-server:
   #       condition: service_healthy
   #     rabbitmq:
-  #       condition: service_healthy 
+  #       condition: service_healthy
 
   captioning:
     container_name: plugin-captioning
     # profiles: ["plugins"]
+    platform: linux/amd64
     build:
       context: ./go-server
       dockerfile: ./plugins/captioning/Dockerfile
@@ -199,7 +201,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    
+
   face-recognition:
     container_name: plugin-face-recognition
     # profiles: ["plugins"]
@@ -228,12 +230,12 @@ services:
       context: ./go-server
       dockerfile: ./plugins/date_hierarchy_builder/Dockerfile
     env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env" 
+      - "go-server/rabbitMQ/rabbitMQ.env"
     depends_on:
       go-server:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy 
+        condition: service_healthy
   geodatas:
     container_name: plugin-geodatas
     # profiles: ["plugins"]
@@ -261,5 +263,3 @@ volumes:
       device: ./medias
   known_faces:
     driver: local
-    
-  
