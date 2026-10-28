@@ -282,25 +282,31 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  # classifier:
-  #   container_name: plugin-classifier
-  #   # profiles: ["plugins"]
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/classifier/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #     - "go-server/media_downloader/media_downloader.env"
-  #   volumes:
-  #     - medias:/app/medias
-  #     - downloaded-medias:/app/downloaded-medias
-  #   depends_on:
-  #     media-downloader:
-  #       condition: service_healthy
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
+  # YOLO: publishes people_detected, which face-recognition consumes
+  classifier:
+    container_name: standalone-classifier
+    profiles: ["heavy"]
+    # ultralytics/ultralytics:latest-cpu is only published for amd64
+    platform: linux/amd64
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/standalone_classifier/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      MEDIA_DOWNLOADER_TARGET: "media-downloader:50052"
+    volumes:
+      # Same mount paths as media-downloader, so the paths it returns resolve here
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    restart: unless-stopped
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   # face-recognition:
   #   container_name: plugin-face-recognition
