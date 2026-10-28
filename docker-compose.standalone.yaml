@@ -136,19 +136,19 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  time-info:
-    container_name: plugin-time-info
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/time_info/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    depends_on:
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # time-info:
+  #   container_name: plugin-time-info
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/time_info/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   depends_on:
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
   color-detector:
     container_name: standalone-color-detector
@@ -199,25 +199,25 @@ services:
   #     rabbitmq:
   #       condition: service_healthy
 
-  media-orchestrator:
-    container_name: media-orchestrator
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/media_orchestrator/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    environment:
-      GRPC_TARGET: media-downloader:50052
-      # exif-extractor runs in STANDALONE_MODE, so don't dispatch to it
-      EXIF_STANDALONE: "true"
-      # Counts ACKs for exif + caption + yolo + color (4), minus 1 for standalone exif.
-      # captioning and classifier (yolo) are not running, so 2 is used to wait for color only.
-      BASE_EXPECTED_ACKS: "2"
-    depends_on:
-      media-downloader:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # media-orchestrator:
+  #   container_name: media-orchestrator
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/media_orchestrator/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   environment:
+  #     GRPC_TARGET: media-downloader:50052
+  #     # exif-extractor runs in STANDALONE_MODE, so don't dispatch to it
+  #     EXIF_STANDALONE: "true"
+  #     # Counts ACKs for exif + caption + yolo + color (4), minus 1 for standalone exif.
+  #     # captioning and classifier (yolo) are not running, so 2 is used to wait for color only.
+  #     BASE_EXPECTED_ACKS: "2"
+  #   depends_on:
+  #     media-downloader:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
   # color-detector-orchestrated:
   #   container_name: plugin-color-detector-orchestrated
@@ -308,26 +308,29 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  # face-recognition:
-  #   container_name: plugin-face-recognition
-  #   # profiles: ["plugins"]
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/face_recognition/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #     - "go-server/media_downloader/media_downloader.env"
-  #   volumes:
-  #     - medias:/app/medias
-  #     - downloaded-medias:/app/downloaded-medias
-  #     - known_faces:/app/known_faces
-  #   depends_on:
-  #     media-downloader:
-  #       condition: service_healthy
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
+  face-recognition:
+    container_name: standalone-face-recognition
+    profiles: ["heavy"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/standalone_face_recognition/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      MEDIA_DOWNLOADER_TARGET: "media-downloader:50052"
+    volumes:
+      # Same mount paths as media-downloader, so the paths it returns resolve here
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+      - known_faces:/app/known_faces
+    restart: unless-stopped
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   date-hierarchy-builder:
     container_name: plugin-date-hierarchy-builder
@@ -342,6 +345,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
   geodatas:
     container_name: plugin-geodatas
     # profiles: ["plugins"]
