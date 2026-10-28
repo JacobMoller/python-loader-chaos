@@ -298,3 +298,6 @@ client/client_venv/
 model_cache
 
 client/*.log
+
+# ignore media files
+/medias/
