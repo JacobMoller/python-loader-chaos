@@ -257,27 +257,30 @@ services:
   #     rabbitmq:
   #       condition: service_healthy
 
-  # captioning:
-  #   container_name: plugin-captioning
-  #   # profiles: ["plugins"]
-  #   platform: linux/amd64
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/captioning/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #     - "go-server/media_downloader/media_downloader.env"
-  #   volumes:
-  #     - ./model_cache:/root/.cache
-  #     - medias:/app/medias
-  #     - downloaded-medias:/app/downloaded-medias
-  #   depends_on:
-  #     media-downloader:
-  #       condition: service_healthy
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
+  captioning:
+    container_name: standalone-captioning
+    profiles: ["heavy"]
+    platform: linux/amd64
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/standalone_captioning/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      MEDIA_DOWNLOADER_TARGET: "media-downloader:50052"
+    volumes:
+      # Same mount paths as media-downloader, so the paths it returns resolve here
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+      - ./model_cache:/root/.cache
+    restart: unless-stopped
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   # classifier:
   #   container_name: plugin-classifier
