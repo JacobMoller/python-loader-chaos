@@ -1,0 +1,8 @@
+FROM golang:1.24.2
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY ./rabbitMQ ./rabbitMQ
+COPY ./dataloader ./dataloader
+COPY ./plugins/color_detector_orchestrated ./plugins/color_detector_orchestrated
+RUN go build -o /app/color_detector_orchestrated ./plugins/color_detector_orchestrated
+CMD [ "/app/color_detector_orchestrated" ]

@@ -1,0 +1,72 @@
+def get_tag_type_id(stub, tagset_name):
+    try:
+        tagset = stub.getTagSetByName(
+            dataloader_pb2.GetTagSetRequestByName(name=tagset_name), timeout=5
+        )
+    except grpc.RpcError as e:
+        if e.code() == grpc.StatusCode.NOT_FOUND:
+            logger.info("Tagset '%s' not found, using default tag type %d", tagset_name, DEFAULT_TAG_TYPE_ID)
+            return DEFAULT_TAG_TYPE_ID
+        raise
+    logger.info("Tagset '%s' has tag type %d", tagset_name, tagset.tagTypeId)
+    return tagset.tagTypeId
+def request_media(media_uri):
+    for attempt in range(1, MAX_GRPC_RETRIES + 1):
+        try:
+            resp = downloader.RequestMedia(
+                media_downloader_pb2.RequestMediaRequest(media_uri=media_uri),
+                timeout=DOWNLOAD_TIMEOUT,
+            )
+            return resp.media_path
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                logger.warning("Media not found: %s", media_uri)
+                return None
+            logger.warning("RequestMedia failed (attempt %d/%d) for %s: %s", attempt, MAX_GRPC_RETRIES, media_uri, e)
+            if attempt < MAX_GRPC_RETRIES:
+                time.sleep(GRPC_RETRY_DELAY * attempt)
+    return None
+def release_media(media_uri):
+    try:
+        downloader.ReleaseMedia(media_downloader_pb2.ReleaseMediaRequest(media_uri=media_uri), timeout=5)
+    except grpc.RpcError as e:
+        logger.warning("ReleaseMedia failed for %s: %s", media_uri, e)
+def callback(ch, method, properties, body):
+    logger.info("new message")
+    try:
+        message = json.loads(body)
+    except json.JSONDecodeError as e:
+        logger.warning("Failed to parse message body: %s", e)
+        return
+    media_id = message.get("ID")
+    if media_id is None:
+        logger.warning("Missing ID in message body")
+        return
+    media_uri = message.get("MediaURI")
+    if media_uri is None:
+        logger.warning("Missing MediaURI in message body")
+        return
+    media_path = request_media(media_uri)
+    if media_path is None:
+        logger.warning("Skipping media %s: could not get %s", media_id, media_uri)
+        return
+    try:
+        color = extract_color(media_path)
+    except Exception as e:
+        logger.warning("Failed to extract color for media %s: %s", media_id, e)
+        return
+    finally:
+        release_media(media_uri)
+    topic = f"tagging.not_added.{tag_type_id}.{TAGSET}"
+    rabbitMQ_helpers.publish_message(ch, topic, json.dumps({"taggingValue": color, "mediaID": media_id}))
+    logger.info("[%s] Sent %s for media %s", topic, color, media_id)
+def main():
+    global downloader, tag_type_id
+    downloader = media_downloader_pb2_grpc.MediaDownloaderStub(grpc.insecure_channel(MEDIA_DOWNLOADER_TARGET))
+    logger.info("media-downloader client created -> %s", MEDIA_DOWNLOADER_TARGET)
+    dataloader_channel = grpc.insecure_channel(f"{GRPC_HOST}:{GRPC_PORT}")
+    tag_type_id = get_tag_type_id(dataloader_pb2_grpc.DataLoaderStub(dataloader_channel), TAGSET)
+    dataloader_channel.close()
+    rabbitMQ_helpers.listen("media.*", callback)
+if __name__ == "__main__":
+    main()

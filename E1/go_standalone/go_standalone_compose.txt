@@ -1,0 +1,21 @@
+color-detector:
+    container_name: plugin-color-detector
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/color_detector/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      MEDIA_DOWNLOADER_TARGET: media-downloader:50052
+      GRPC_HOST: go-server
+      GRPC_PORT: 50051
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy

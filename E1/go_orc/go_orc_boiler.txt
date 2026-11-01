@@ -1,0 +1,70 @@
+func main() {
+	prod = rmq.ProducerConnexionInit()
+	defer prod.ConnexionEnd()
+	log.Println("producer created")
+	grpcHost := os.Getenv("GRPC_HOST")
+	if grpcHost == "" {
+		grpcHost = "go-server"
+	}
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50051"
+	}
+	dataloaderTarget := fmt.Sprintf("%s:%s", grpcHost, grpcPort)
+	dataloaderConn, err := grpc.NewClient(dataloaderTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to create dataloader client for %s: %v", dataloaderTarget, err)
+	}
+	tagTypeId, err = getTagTypeId(pb.NewDataLoaderClient(dataloaderConn), tagSet)
+	dataloaderConn.Close()
+	if err != nil {
+		log.Fatalf("Failed to get tag type: %v", err)
+	}
+	rmq.Listen("process.color", processMessage)
+}
+
+func processMessage(d amqp.Delivery) {
+	log.Println("new message")
+	var message map[string]string
+	err := json.Unmarshal(d.Body, &message)
+	if err != nil {
+		log.Printf("Failed to parse message body: %v", err)
+		return
+	}
+	mediaId, ok := message["ID"]
+	if !ok {
+		log.Printf("Missing ID in message body")
+		return
+	}
+	defer sendAck(mediaId)
+	mediaPath, ok := message["MediaPath"]
+	if !ok {
+		log.Printf("Missing MediaPath in message body")
+		return
+	}
+	color, err := extractColor(mediaPath)
+	if err != nil {
+		log.Printf("Failed to extract color for media %s: %v", mediaId, err)
+		return
+	}
+	body := fmt.Sprintf(`{"taggingValue": "%s", "mediaID": "%s"}`, color, mediaId)
+	rmq.PublishMessage(prod, body, fmt.Sprintf("tagging.not_added.%d.%s", tagTypeId, tagSet))
+}
+func sendAck(mediaId string) {
+	body := fmt.Sprintf(`{"mediaID": "%s", "plugin": "%s"}`, mediaId, pluginName)
+	rmq.PublishMessage(prod, body, fmt.Sprintf("process.done.%s", mediaId))
+}
+func getTagTypeId(dataloader pb.DataLoaderClient, tagsetName string) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	tagset, err := dataloader.GetTagSetByName(ctx, &pb.GetTagSetRequestByName{Name: tagsetName})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			log.Printf("Tagset %q not found, using default tag type %d", tagsetName, defaultTagTypeId)
+			return defaultTagTypeId, nil
+		}
+		return 0, fmt.Errorf("could not look up tagset %q: %w", tagsetName, err)
+	}
+	log.Printf("Tagset %q has tag type %d", tagsetName, tagset.GetTagTypeId())
+	return tagset.GetTagTypeId(), nil
+}

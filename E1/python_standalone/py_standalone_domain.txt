@@ -1,0 +1,7 @@
+def extract_color(media_path):
+    with Image.open(media_path) as img:
+        saturation = img.convert("RGB").convert("HSV").getchannel("S")
+    average_saturation = ImageStat.Stat(saturation).mean[0] / 255
+    if average_saturation < 0.05:
+        return "Black&White"
+    return "Color"

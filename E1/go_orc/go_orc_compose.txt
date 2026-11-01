@@ -1,0 +1,20 @@
+  color-detector-orchestrated:
+    container_name: plugin-color-detector-orchestrated
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/color_detector_orchestrated/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+    environment:
+      GRPC_HOST: go-server
+      GRPC_PORT: 50051
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-orchestrator:
+        condition: service_started
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy

@@ -1,0 +1,38 @@
+func extractColor(mediaPath string) (string, error) {
+	file, err := os.Open(mediaPath)
+	if err != nil {
+		return "", fmt.Errorf("could not open image %q: %w", mediaPath, err)
+	}
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return "", fmt.Errorf("could not decode image %q: %w", mediaPath, err)
+	}
+	var totalSaturation float64
+	var pixelCount int
+	bounds := img.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			ir, ig, ib, _ := img.At(x, y).RGBA()
+			r := float64(ir) / 65535
+			g := float64(ig) / 65535
+			b := float64(ib) / 65535
+			max := math.Max(r, math.Max(g, b))
+			min := math.Min(r, math.Min(g, b))
+			if max > 0 {
+				// Add normalized saturation to totalSaturation
+				totalSaturation += (max - min) / max
+			}
+			pixelCount++
+		}
+	}
+	if pixelCount == 0 {
+		return "", fmt.Errorf("image has no pixels")
+	}
+	averageSaturation := totalSaturation / float64(pixelCount)
+	color := "Color"
+	if averageSaturation < 0.05 {
+		color = "Black&White"
+	}
+	return color, nil
+}
