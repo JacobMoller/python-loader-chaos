@@ -1,6 +1,8 @@
 import json
 import logging
 import multiprocessing
+import os
+import time
 
 import torch
 
@@ -20,6 +22,13 @@ PLUGIN_NAME = "captioning"
 PROCESSING_TIMEOUT = 120  # seconds
 MAX_RETRIES = 2
 MAX_IMAGE_SIZE = 1024  # max pixels on longest side
+
+# Up to BATCH_SIZE media are captioned with one generate call, which keeps the
+# GPU busy instead of feeding it one image at a time. After the first media
+# arrives, the plugin waits at most BATCH_MAX_WAIT seconds for more.
+# BATCH_SIZE=1 gives the unbatched behaviour, for comparison.
+BATCH_SIZE     = int(os.environ.get("BATCH_SIZE", "8"))
+BATCH_MAX_WAIT = float(os.environ.get("BATCH_MAX_WAIT", "2"))
 
 # "spawn" instead of the default "fork": forking a process that runs other
 # threads (the RabbitMQ connection thread) can deadlock the child
@@ -128,29 +137,70 @@ def caption_image(media_id, media_path):
     return None
 
 
-def handle_media(body: bytes, routing_key: str):
-    # media.* messages are published by the server as {"ID", "MediaURI", "ThumbnailURI"}
-    data = json.loads(body)
-    media_id = data.get("ID")
-    media_uri = data.get("MediaURI")
-    if not media_id or not media_uri:
-        logger.warning("Malformed message, skipping: %s", data)
-        return
+def caption_batch(images: list):
+    """Caption several images with one generate call. The eval processor resizes
+    every image to the same input size, so the tensors can be stacked."""
+    image_tensors = torch.stack([vis_processors["eval"](image) for image in images]).to(device)
 
-    logger.info("Processing media ID=%s URI=%s", media_id, media_uri)
+    with torch.no_grad():
+        captions = model.generate(
+            {"image": image_tensors},
+            max_length=40,
+            num_beams=3,
+        )
 
-    with media_downloader_client.local_media(media_uri) as media_path:
-        caption = caption_image(media_id, media_path)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
-    if caption is None:
-        logger.error("All attempts failed for ID=%s, skipping.", media_id)
-        return
+    return captions
 
-    rabbitMQ_standalone.publish(
-        "tagging.not_added.1.Caption",
-        json.dumps({"taggingValue": caption, "mediaID": media_id}),
-    )
-    logger.info("Caption: '%s' for ID=%s", caption, media_id)
+
+def handle_batch(messages: list[rabbitMQ_standalone.Message]):
+    medias = []
+    for message in messages:
+        # media.* messages are published by the server as {"ID", "MediaURI", "ThumbnailURI"}
+        data = json.loads(message.body)
+        media_id = data.get("ID")
+        media_uri = data.get("MediaURI")
+        if not media_id or not media_uri:
+            logger.warning("Malformed message, skipping: %s", data)
+            continue
+        medias.append((media_id, media_uri))
+
+    t0 = time.time()
+    captions = {}  # media_id -> caption
+    with media_downloader_client.local_medias(medias) as available:
+        # Load the images one by one, so an unreadable image only fails itself
+        loaded = []  # (media_id, media_path, image)
+        for media_id, _, media_path in available:
+            try:
+                loaded.append((media_id, media_path, safe_load_image(media_path)))
+            except Exception as e:
+                logger.warning("Could not load image ID=%s: %s", media_id, e)
+
+        if loaded:
+            logger.info("Processing batch of %d: IDs=%s", len(loaded), [m[0] for m in loaded])
+            try:
+                batch_captions = caption_batch([image for _, _, image in loaded])
+                captions = {media_id: caption for (media_id, _, _), caption in zip(loaded, batch_captions)}
+            except Exception as e:
+                # e.g. out of GPU memory: fall back to the per-image path with its retries
+                logger.warning("Batch inference failed (%s), captioning the %d media one by one", e, len(loaded))
+                for media_id, media_path, _ in loaded:
+                    captions[media_id] = caption_image(media_id, media_path)
+
+    for media_id, _ in medias:
+        caption = captions.get(media_id)
+        if caption is None:
+            logger.error("No caption for ID=%s, skipping.", media_id)
+            continue
+        rabbitMQ_standalone.publish(
+            "tagging.not_added.1.Caption",
+            json.dumps({"taggingValue": caption, "mediaID": media_id}),
+        )
+        logger.info("Caption: '%s' for ID=%s", caption, media_id)
+
+    logger.info("Batch of %d done in %ss", len(medias), round(time.time() - t0, 2))
 
 
 def main():
@@ -162,9 +212,11 @@ def main():
     model, vis_processors, _ = load_model_and_preprocess(
         name="blip_caption", model_type="base_coco", is_eval=True, device=device
     )
-    logger.info("Model loaded on %s.", device)
+    logger.info("Model loaded on %s, batch size %d, max wait %ss.", device, BATCH_SIZE, BATCH_MAX_WAIT)
 
-    rabbitMQ_standalone.consume(PLUGIN_NAME, ["media.*"], handle_media)
+    rabbitMQ_standalone.consume_batch(
+        PLUGIN_NAME, ["media.*"], handle_batch, batch_size=BATCH_SIZE, max_wait=BATCH_MAX_WAIT
+    )
 
 
 if __name__ == "__main__":

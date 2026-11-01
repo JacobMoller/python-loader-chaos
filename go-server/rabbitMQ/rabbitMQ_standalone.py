@@ -10,6 +10,7 @@ messages of that one queue.
 Producers are unchanged: they keep publishing to the exchange with a routing
 key (see publish) and never need to know which queues exist.
 """
+import collections
 import functools
 import logging
 import queue
@@ -70,6 +71,9 @@ def declare_plugin_queue(channel, name: str, binding_keys: list[str]):
 # =========================
 # CONSUMING
 # =========================
+Message = collections.namedtuple("Message", ["body", "routing_key"])
+
+
 def consume(plugin: str, binding_keys: list[str], handler):
     """
     Declare the plugin's queue and call handler(body: bytes, routing_key: str)
@@ -85,11 +89,31 @@ def consume(plugin: str, binding_keys: list[str], handler):
     that always fails cannot block the queue). If the connection is lost while
     the handler runs, the message is redelivered.
     """
+    consume_batch(
+        plugin, binding_keys,
+        lambda messages: handler(messages[0].body, messages[0].routing_key),
+        batch_size=1,
+    )
+
+
+def consume_batch(plugin: str, binding_keys: list[str], handler, batch_size: int, max_wait: float = 0.0):
+    """
+    Like consume, but calls handler(messages: list[Message]) with up to
+    batch_size messages at a time, e.g. to run one batched GPU inference.
+
+    After the first message arrives, the worker waits at most max_wait seconds
+    for the batch to fill up, so a lone message is not held back when the queue
+    is (almost) empty: a busy queue gives full batches, a quiet one small ones.
+
+    All messages of a batch are acknowledged once the handler returns. If the
+    handler raises, the whole batch is dropped, so handlers should catch
+    failures of single messages themselves and only skip those.
+    """
     global _plugin_queue
     name = _plugin_queue = queue_name(plugin)
     work: queue.Queue = queue.Queue()
     threading.Thread(
-        target=_worker, args=(work, handler), name=f"{plugin}-worker", daemon=True
+        target=_worker, args=(work, handler, batch_size, max_wait), name=f"{plugin}-worker", daemon=True
     ).start()
 
     while True:
@@ -97,9 +121,9 @@ def consume(plugin: str, binding_keys: list[str], handler):
             connection = _connect("consumer")
             channel = connection.channel()
             declare_plugin_queue(channel, name, binding_keys)
-            # Only hand one unacknowledged message at a time to this consumer,
+            # Hand at most batch_size unacknowledged messages to this consumer,
             # the rest stay in the queue (and go to other replicas, if any)
-            channel.basic_qos(prefetch_count=1)
+            channel.basic_qos(prefetch_count=batch_size)
             channel.basic_consume(
                 queue=name,
                 on_message_callback=functools.partial(_on_message, connection, work),
@@ -117,22 +141,34 @@ def _on_message(connection, work, channel, method, properties, body):
     work.put((connection, channel, method, body))
 
 
-def _worker(work: queue.Queue, handler):
+def _worker(work: queue.Queue, handler, batch_size: int, max_wait: float):
     while True:
-        connection, channel, method, body = work.get()
+        batch = [work.get()]
+        deadline = time.monotonic() + max_wait
+        while len(batch) < batch_size:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                batch.append(work.get(timeout=remaining))
+            except queue.Empty:
+                break
+
         ok = True
         try:
-            handler(body, method.routing_key)
+            handler([Message(body, method.routing_key) for _, _, method, body in batch])
         except Exception:
             ok = False
-            logger.exception("Handler failed for message on %s, dropping it", method.routing_key)
+            logger.exception("Handler failed for %d message(s) on %s, dropping them",
+                             len(batch), ", ".join(sorted({m.routing_key for _, _, m, _ in batch})))
 
-        # Channels are not thread-safe, the ack must happen on the connection thread
-        settle = functools.partial(_settle, channel, method.delivery_tag, ok)
-        try:
-            connection.add_callback_threadsafe(settle)
-        except Exception as e:
-            logger.warning("Could not settle message (connection lost, it will be redelivered): %s", e)
+        for connection, channel, method, _ in batch:
+            # Channels are not thread-safe, the ack must happen on the connection thread
+            settle = functools.partial(_settle, channel, method.delivery_tag, ok)
+            try:
+                connection.add_callback_threadsafe(settle)
+            except Exception as e:
+                logger.warning("Could not settle message (connection lost, it will be redelivered): %s", e)
 
 
 def _settle(channel, delivery_tag, ok):
