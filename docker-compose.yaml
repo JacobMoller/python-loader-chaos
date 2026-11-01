@@ -2,6 +2,8 @@ services:
   db:
     container_name: db
     image: postgres:14.1-alpine
+    # record the commit time of every row, used by tools/e2e_benchmark.py to time the pipeline
+    command: postgres -c track_commit_timestamp=on
     restart: always
     environment:
       - POSTGRES_DB=loader-testing
