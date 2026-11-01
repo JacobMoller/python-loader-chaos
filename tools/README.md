@@ -119,8 +119,8 @@ plantuml go.puml
 pyreverse -o png -p client client/filemgmt client/grpc_client.py client/sysmon.py client/cli.py          
 ```
 # e2e_benchmark.py
-
-Measures the end-to-end time from queueing a folder of medias (`cli.py add medias`) until the pipeline has processed all of them, and records CPU/memory per container and GPU while it runs. It only observes the running stack, so the loader itself is not changed.
+Script used for experiment E3.
+Measures the end-to-end time from queueing a folder of medias (`cli.py add medias`) until the pipeline has processed all of them. It also records CPU/memory per container and GPU while it runs (if machine has GPU). It observes the running stack.
 
 - **End time:** `docker-compose.yaml` needs to start Postgres with `track_commit_timestamp=on`, so every row remembers when it was written. After a run, the latest commit time in `medias`, `taggings`, `tags` and `nodes` is the end.
 - **When to stop waiting:** a run is over when the insert has finished and the database has had no writes for `--quiet` seconds. The waiting time is not part of the result.
@@ -142,3 +142,4 @@ python tools/e2e_benchmark.py --folder /app/medias/bench_1000 --runs 5 --label b
 - `run_XX/summary.json`: the same for one run
 - `run_XX/stats.csv`: CPU % (100 % = one core) and memory per container, about every 2 s
 - `run_XX/gpu.csv`: GPU utilization and GPU memory, about every 2 s (empty without an NVIDIA GPU)
+- `run_XX/queues.csv`: per RabbitMQ queue, messages `ready` (waiting) and `unacked` (delivered to a plugin, not yet acknowledged) and the number of consumers, about every 2 s. RabbitMQ refreshes these numbers every ~5 s. In the current version the queues have random names (`amq.gen-…`) and stay at 0 because of `auto_ack`; with named queues per plugin they show each plugin's backlog
