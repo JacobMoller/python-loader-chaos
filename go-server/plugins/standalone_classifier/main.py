@@ -57,52 +57,87 @@ def load_text_labels(path: str) -> list[str]:
 
 TEXT_LABELS = load_text_labels(LABELS_FILE)
 
+# =========================
+# BATCHING
+# =========================
+# Up to BATCH_SIZE media are run through YOLO in one inference call, which keeps
+# the GPU busy instead of feeding it one image at a time. After the first media
+# arrives, the plugin waits at most BATCH_MAX_WAIT seconds for more.
+# BATCH_SIZE=1 gives the unbatched behaviour, for comparison.
+BATCH_SIZE     = int(os.environ.get("BATCH_SIZE", "8"))
+BATCH_MAX_WAIT = float(os.environ.get("BATCH_MAX_WAIT", "2"))
+
 model = None
+
+
+def predict(media_paths: list[str]):
+    """Run YOLO on all paths in one batch, returns one result per path."""
+    return model(
+        media_paths,
+        batch=len(media_paths),
+        show=False,
+        save=False,
+        stream=False,
+        device=DEVICE,
+        conf=CONF_THRESHOLD,
+        verbose=False,
+    )
 
 
 # =========================
 # HANDLER
 # =========================
-def handle_media(body: bytes, routing_key: str):
-    # media.* messages are published by the server as {"ID", "MediaURI", "ThumbnailURI"}
-    data = json.loads(body)
-    media_id = data.get("ID")
-    media_uri = data.get("MediaURI")
-    if not media_id or not media_uri:
-        logger.warning("Malformed message, skipping: %s", data)
-        return
+def handle_batch(messages: list[rabbitMQ_standalone.Message]):
+    medias = []
+    for message in messages:
+        # media.* messages are published by the server as {"ID", "MediaURI", "ThumbnailURI"}
+        data = json.loads(message.body)
+        media_id = data.get("ID")
+        media_uri = data.get("MediaURI")
+        if not media_id or not media_uri:
+            logger.warning("Malformed message, skipping: %s", data)
+            continue
+        medias.append((media_id, media_uri))
 
     t0 = time.time()
-    logger.info("Processing ID=%s URI=%s", media_id, media_uri)
+    with media_downloader_client.local_medias(medias) as available:
+        if not available:
+            return
+        logger.info("Processing batch of %d: IDs=%s", len(available), [m[0] for m in available])
 
-    with media_downloader_client.local_media(media_uri) as media_path:
-        results = model(
-            media_path,
-            show=False,
-            save=False,
-            stream=False,
-            device=DEVICE,
-            conf=CONF_THRESHOLD,
-            verbose=False,
-        )
+        try:
+            results = predict([media_path for _, _, media_path in available])
+        except Exception as e:
+            # One unreadable image fails the whole batch, so retry the media
+            # one by one to only lose the broken one
+            logger.warning("Batch inference failed (%s), retrying the %d media one by one", e, len(available))
+            results = []
+            for media_id, _, media_path in available:
+                try:
+                    results.append(predict([media_path])[0])
+                except Exception as e:
+                    logger.error("Inference failed for ID=%s: %s", media_id, e)
+                    results.append(None)
 
-    num_detections = 0
+    for (media_id, media_uri, _), result in zip(available, results):
+        if result is not None:
+            publish_detections(media_id, media_uri, result)
+
+    logger.info("Batch of %d done in %ss", len(available), round(time.time() - t0, 2))
+
+
+def publish_detections(media_id, media_uri, result):
     seen_labels = set()
-    for result in results:
-        for box in result.boxes:
-            num_detections += 1
-            name = result.names[int(box.cls[0])]
-            if name not in seen_labels:
-                seen_labels.add(name)
-                rabbitMQ_standalone.publish(
-                    RABBITMQ_PUBLISH_KEY,
-                    json.dumps({"taggingValue": name, "mediaID": media_id}),
-                )
+    for box in result.boxes:
+        name = result.names[int(box.cls[0])]
+        if name not in seen_labels:
+            seen_labels.add(name)
+            rabbitMQ_standalone.publish(
+                RABBITMQ_PUBLISH_KEY,
+                json.dumps({"taggingValue": name, "mediaID": media_id}),
+            )
 
-    logger.info(
-        "ID=%s: %d detections in %ss – labels=%s",
-        media_id, num_detections, round(time.time() - t0, 2), list(seen_labels),
-    )
+    logger.info("ID=%s: %d detections – labels=%s", media_id, len(result.boxes), list(seen_labels))
 
     # ── Produce work for the face recognition plugin ─────────────────────
     if seen_labels & HUMAN_LABELS:
@@ -123,9 +158,11 @@ def main():
 
     model = YOLO(MODEL_PATH)
     model.set_classes(TEXT_LABELS)
-    logger.info("Model loaded.")
+    logger.info("Model loaded, batch size %d, max wait %ss.", BATCH_SIZE, BATCH_MAX_WAIT)
 
-    rabbitMQ_standalone.consume(PLUGIN_NAME, ["media.*"], handle_media)
+    rabbitMQ_standalone.consume_batch(
+        PLUGIN_NAME, ["media.*"], handle_batch, batch_size=BATCH_SIZE, max_wait=BATCH_MAX_WAIT
+    )
 
 
 if __name__ == "__main__":
