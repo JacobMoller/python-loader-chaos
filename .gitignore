@@ -298,3 +298,7 @@ client/client_venv/
 model_cache
 
 client/*.log
+
+
+bench_results/
+medias/

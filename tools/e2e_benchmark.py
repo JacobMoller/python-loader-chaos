@@ -12,6 +12,9 @@ from pathlib import Path
 
 DB = "db"
 CLIENT = "python-client"
+FACES = "plugin-face-recognition"
+# where face recognition saves every face it has seen, see the known_faces volume in docker-compose
+KNOWN_FACES = "/app/known_faces"
 
 # 15672 is the management API for rabbitMQ, see docker-compose
 RABBIT = "http://localhost:15672"
@@ -76,7 +79,31 @@ def queue_sizes():
     return [[q["name"], q.get("messages_ready", 0), q.get("messages_unacknowledged", 0), q.get("consumers", 0)]
             for q in queues]
 
+# face recognition keeps the faces it has seen in KNOWN_FACES and in memory, and the db reset
+# clears neither. Without this, later runs match against the faces of earlier runs
+def reset_known_faces(timeout=60):
+    if not run(["docker", "ps", "-q", "--filter", f"name=^{FACES}$"]).strip():
+        return  # plugin is not running
+
+    run(["docker", "exec", FACES, "sh", "-c", f"rm -f {KNOWN_FACES}/*"])
+    run(["docker", "restart", FACES])
+
+    # wait until it listens again, its queue only exists while it is connected so it would miss medias.
+    # StartedAt is the docker clock, so it matches the log timestamps
+    started = run(["docker", "inspect", "-f", "{{.State.StartedAt}}", FACES]).strip()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        # python logging writes to stderr, so read both
+        logs = subprocess.run(["docker", "logs", "--since", started, FACES],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if "Listening on" in logs.stdout + logs.stderr:
+            return
+        time.sleep(1)
+    raise RuntimeError(f"{FACES} did not start listening within {timeout}s")
+
 def reset_and_load_tagsets():
+    reset_known_faces()
+
     # reset db using the client (it asks for confirmation)
     run(["docker", "exec", "-i", CLIENT, "python", "cli.py", "reset"], input_text="y\n")
 

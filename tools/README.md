@@ -132,7 +132,7 @@ After changing `docker-compose.yaml`, recreate the database container once with 
 python tools/e2e_benchmark.py --folder /app/medias/bench_1000 --runs 5 --label baseline
 ```
 
-`--folder` is the path inside the containers. Before each run the database is reset and the tagsets are created. Other options: `--poll` (seconds between samples, default 1; in practice about 2 s, because `docker stats --no-stream` takes that long per call) and `--quiet` (default 60; a plugin that works longer than this without writing would end a run early).
+`--folder` is the path inside the containers. Before each run the database is reset and the tagsets are created. Face recognition also remembers every face it has seen (in the `known_faces` volume and in memory), so its folder is emptied and the plugin restarted, and the run waits until it listens again. Other options: `--poll` (seconds between samples, default 1; in practice about 2 s, because `docker stats --no-stream` takes that long per call) and `--quiet` (default 60; a plugin that works longer than this without writing would end a run early).
 
 ## Output
 

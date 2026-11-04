@@ -45,7 +45,7 @@ HEADER_ALIASES = {"name", "nom", "tagset", "type", "tagtype"}
 
 class TagsetImporter:
 
-    def __init__(self, grpc_host='localhost', grpc_port='50051'):
+    def __init__(self, grpc_host=None, grpc_port=None):
         self.client = grpc_client.LoaderClient(grpc_host=grpc_host, grpc_port=grpc_port)
 
     # ------------------------------------------------------------------ #

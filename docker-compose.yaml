@@ -176,30 +176,30 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  color-detector-python:
-    container_name: plugin-color-detector-python
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/color_detector_python/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    environment:
-      MEDIA_DOWNLOADER_TARGET: media-downloader:50052
-      # Dataloader gRPC server, used to look up the tag type of the tagset
-      GRPC_HOST: go-server
-      GRPC_PORT: 50051
-    volumes:
-      # Same mount paths as media-downloader, so the paths it returns resolve here
-      - medias:/app/medias
-      - downloaded-medias:/app/downloaded-medias
-    depends_on:
-      media-downloader:
-        condition: service_healthy
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # color-detector-python:
+  #   container_name: plugin-color-detector-python
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/color_detector_python/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   environment:
+  #     MEDIA_DOWNLOADER_TARGET: media-downloader:50052
+  #     # Dataloader gRPC server, used to look up the tag type of the tagset
+  #     GRPC_HOST: go-server
+  #     GRPC_PORT: 50051
+  #   volumes:
+  #     # Same mount paths as media-downloader, so the paths it returns resolve here
+  #     - medias:/app/medias
+  #     - downloaded-medias:/app/downloaded-medias
+  #   depends_on:
+  #     media-downloader:
+  #       condition: service_healthy
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
   media-orchestrator:
     container_name: media-orchestrator
@@ -212,115 +212,115 @@ services:
       GRPC_TARGET: media-downloader:50052
       # exif-extractor runs in STANDALONE_MODE, so don't dispatch to it
       EXIF_STANDALONE: "true"
-      # Counts ACKs for exif + caption + yolo + color (4), minus 1 for standalone exif.
-      # captioning and classifier (yolo) are not running, so 2 is used to wait for color only.
-      BASE_EXPECTED_ACKS: "2"
+      # Counts ACKs for exif + caption + yolo, minus 1 for each standalone plugin,
+      # so it waits for caption and yolo. Face recognition adds 1 when yolo requests it.
+      BASE_EXPECTED_ACKS: "3"
     depends_on:
       media-downloader:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
-  color-detector-orchestrated:
-    container_name: plugin-color-detector-orchestrated
+  # color-detector-orchestrated:
+  #   container_name: plugin-color-detector-orchestrated
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/color_detector_orchestrated/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   environment:
+  #     # Dataloader gRPC server, used to look up the tag type of the tagset
+  #     GRPC_HOST: go-server
+  #     GRPC_PORT: 50051
+  #   volumes:
+  #     # Same mount paths as media-downloader, so the MediaPath from the orchestrator resolves here
+  #     - medias:/app/medias
+  #     - downloaded-medias:/app/downloaded-medias
+  #   depends_on:
+  #     media-orchestrator:
+  #       condition: service_started
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+
+  location-info:
+    container_name: plugin-location-info
     # profiles: ["plugins"]
     build:
       context: ./go-server
-      dockerfile: ./plugins/color_detector_orchestrated/Dockerfile
+      dockerfile: ./plugins/location_info/Dockerfile
     env_file:
       - "go-server/rabbitMQ/rabbitMQ.env"
-    environment:
-      # Dataloader gRPC server, used to look up the tag type of the tagset
-      GRPC_HOST: go-server
-      GRPC_PORT: 50051
-    volumes:
-      # Same mount paths as media-downloader, so the MediaPath from the orchestrator resolves here
-      - medias:/app/medias
-      - downloaded-medias:/app/downloaded-medias
     depends_on:
-      media-orchestrator:
-        condition: service_started
       go-server:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
-  # location-info:
-  #   container_name: plugin-location-info
-  #   # profiles: ["plugins"]
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/location_info/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #   depends_on:
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
+  captioning:
+    container_name: plugin-captioning
+    # profiles: ["plugins"]
+    platform: linux/amd64
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/captioning/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - ./model_cache:/root/.cache
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
-  # captioning:
-  #   container_name: plugin-captioning
-  #   # profiles: ["plugins"]
-  #   platform: linux/amd64
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/captioning/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #     - "go-server/media_downloader/media_downloader.env"
-  #   volumes:
-  #     - ./model_cache:/root/.cache
-  #     - medias:/app/medias
-  #     - downloaded-medias:/app/downloaded-medias
-  #   depends_on:
-  #     media-downloader:
-  #       condition: service_healthy
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
+  classifier:
+    container_name: plugin-classifier
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/classifier/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
-  # classifier:
-  #   container_name: plugin-classifier
-  #   # profiles: ["plugins"]
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/classifier/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #     - "go-server/media_downloader/media_downloader.env"
-  #   volumes:
-  #     - medias:/app/medias
-  #     - downloaded-medias:/app/downloaded-medias
-  #   depends_on:
-  #     media-downloader:
-  #       condition: service_healthy
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-
-  # face-recognition:
-  #   container_name: plugin-face-recognition
-  #   # profiles: ["plugins"]
-  #   build:
-  #     context: ./go-server
-  #     dockerfile: ./plugins/face_recognition/Dockerfile
-  #   env_file:
-  #     - "go-server/rabbitMQ/rabbitMQ.env"
-  #     - "go-server/media_downloader/media_downloader.env"
-  #   volumes:
-  #     - medias:/app/medias
-  #     - downloaded-medias:/app/downloaded-medias
-  #     - known_faces:/app/known_faces
-  #   depends_on:
-  #     media-downloader:
-  #       condition: service_healthy
-  #     go-server:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
+  face-recognition:
+    container_name: plugin-face-recognition
+    # profiles: ["plugins"]
+    build:
+      context: ./go-server
+      dockerfile: ./plugins/face_recognition/Dockerfile
+    env_file:
+      - "go-server/rabbitMQ/rabbitMQ.env"
+      - "go-server/media_downloader/media_downloader.env"
+    volumes:
+      - medias:/app/medias
+      - downloaded-medias:/app/downloaded-medias
+      - known_faces:/app/known_faces
+    depends_on:
+      media-downloader:
+        condition: service_healthy
+      go-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   date-hierarchy-builder:
     container_name: plugin-date-hierarchy-builder
