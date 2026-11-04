@@ -232,11 +232,16 @@ def main():
                 return
 
             logger.info("[STANDALONE] Processing media ID=%s URI=%s", media_id, media_uri)
+            # parsed by tools/e2e_benchmark.py, docker adds the timestamp.
+            # processed in the callback itself, so received and start are the same moment
+            logger.info("TIMING received ID=%s", media_id)
+            logger.info("TIMING start ID=%s", media_id)
 
             # Download media ourselves
             media_path = request_media(media_uri)
             if media_path is None:
                 logger.warning("[STANDALONE] Skipping media ID=%s (download failed)", media_id)
+                logger.info("TIMING done ID=%s status=skipped", media_id)
                 return
 
             # Extract EXIF
@@ -245,6 +250,7 @@ def main():
             # Release media ourselves
             release_media(media_uri)
             logger.info("[STANDALONE] Done with media ID=%s", media_id)
+            logger.info("TIMING done ID=%s status=ok", media_id)
 
         else:
             # ── Orchestrated: message comes from process.exif, contains ID + MediaPath
@@ -252,12 +258,15 @@ def main():
             media_path = data["MediaPath"]
 
             logger.info("Processing media ID=%s path=%s", media_id, media_path)
+            logger.info("TIMING received ID=%s", media_id)
+            logger.info("TIMING start ID=%s", media_id)
 
             process_exif(media_id, media_path)
 
             # Send ACK to orchestrator
             send_ack(media_id)
             logger.info("Done with media ID=%s", media_id)
+            logger.info("TIMING done ID=%s status=ok", media_id)
 
     listen_key = "media.*" if STANDALONE_MODE else "process.exif"
     logger.info("Listening on '%s'...", listen_key)

@@ -137,19 +137,19 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  time-info:
-    container_name: plugin-time-info
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/time_info/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    depends_on:
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # time-info:
+  #   container_name: plugin-time-info
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/time_info/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   depends_on:
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
   color-detector:
     container_name: plugin-color-detector
@@ -245,19 +245,19 @@ services:
   #     rabbitmq:
   #       condition: service_healthy
 
-  location-info:
-    container_name: plugin-location-info
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/location_info/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    depends_on:
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # location-info:
+  #   container_name: plugin-location-info
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/location_info/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   depends_on:
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
   captioning:
     container_name: plugin-captioning
@@ -322,32 +322,32 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  date-hierarchy-builder:
-    container_name: plugin-date-hierarchy-builder
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/date_hierarchy_builder/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    depends_on:
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-  geodatas:
-    container_name: plugin-geodatas
-    # profiles: ["plugins"]
-    build:
-      context: ./go-server
-      dockerfile: ./plugins/geodatas/Dockerfile
-    env_file:
-      - "go-server/rabbitMQ/rabbitMQ.env"
-    depends_on:
-      go-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+  # date-hierarchy-builder:
+  #   container_name: plugin-date-hierarchy-builder
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/date_hierarchy_builder/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   depends_on:
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  # geodatas:
+  #   container_name: plugin-geodatas
+  #   # profiles: ["plugins"]
+  #   build:
+  #     context: ./go-server
+  #     dockerfile: ./plugins/geodatas/Dockerfile
+  #   env_file:
+  #     - "go-server/rabbitMQ/rabbitMQ.env"
+  #   depends_on:
+  #     go-server:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
 
 volumes:
   downloaded-medias:

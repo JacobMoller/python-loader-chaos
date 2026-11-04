@@ -126,7 +126,12 @@ def on_media_message(ch, method, properties, body):
         media_id = data.get("ID")
         media_uri = data.get("MediaURI")
         if media_id and media_uri:
+            # parsed by tools/e2e_benchmark.py, docker adds the timestamp. Logged before put, so it is
+            # always before the TIMING start of the main thread.
+            # RabbitMQ hands the medias over at once (auto_ack), so the backlog is in media_queue
+            logger.info("TIMING received ID=%s", media_id)
             media_queue.put({"ID": media_id, "MediaURI": media_uri})
+            logger.info("QUEUE size=%d", media_queue.qsize())
         else:
             logger.warning("Malformed media message: %s", data)
     except Exception as e:
@@ -242,12 +247,16 @@ def process_loop():
         media_uri = item["MediaURI"]
 
         logger.info("Processing media ID=%s URI=%s (queued=%d)", media_id, media_uri, media_queue.qsize())
+        # parsed by tools/e2e_benchmark.py, docker adds the timestamp
+        logger.info("QUEUE size=%d", media_queue.qsize())
+        logger.info("TIMING start ID=%s", media_id)
 
         # ── 1. Download ──────────────────────────────────────────────
         media_path = request_media(media_uri)
         if media_path is None:
             logger.warning("Skipping media ID=%s (download failed)", media_id)
             stats["skipped"] += 1
+            logger.info("TIMING done ID=%s status=skipped", media_id)
             continue
 
         # ── 2. Dispatch to base plugins ──────────────────────────────
@@ -346,11 +355,13 @@ def process_loop():
                 "All %d ACKs received for media ID=%s from %s – released.",
                 expected_acks, media_id, ack_plugins,
             )
+            logger.info("TIMING done ID=%s status=ok", media_id)
         else:
             logger.warning(
                 "Released media ID=%s with only %d/%d ACKs (from %s).",
                 media_id, received_acks, expected_acks, ack_plugins,
             )
+            logger.info("TIMING done ID=%s status=timeout", media_id)
 
 
 def _drain_queue(q: queue.Queue):

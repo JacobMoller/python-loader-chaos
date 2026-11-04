@@ -105,9 +105,18 @@ func processMessage(d amqp.Delivery) {
 		return
 	}
 
+	// parsed by tools/e2e_benchmark.py, docker adds the timestamp.
+	// processed as soon as it is received, so received and start are the same moment.
+	// done is deferred first so it runs last, after releaseMedia
+	log.Printf("TIMING received ID=%s", mediaId)
+	log.Printf("TIMING start ID=%s", mediaId)
+	status := "ok"
+	defer func() { log.Printf("TIMING done ID=%s status=%s", mediaId, status) }()
+
 	mediaPath, err := requestMedia(mediaURI)
 	if err != nil {
 		log.Printf("Skipping media %s: %v", mediaId, err)
+		status = "skipped"
 		return
 	}
 	defer releaseMedia(mediaURI)
@@ -115,6 +124,7 @@ func processMessage(d amqp.Delivery) {
 	color, err := extractColor(mediaPath)
 	if err != nil {
 		log.Printf("Failed to extract color for media %s: %v", mediaId, err)
+		status = "error"
 		return
 	}
 

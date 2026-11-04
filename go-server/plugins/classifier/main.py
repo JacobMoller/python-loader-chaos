@@ -118,6 +118,8 @@ def yolo_worker(worker_id: int):
 
         t0 = time.time()
         logger.info("Worker %d – processing ID=%s", worker_id, media_id)
+        # parsed by tools/e2e_benchmark.py, docker adds the timestamp
+        logger.info("TIMING start ID=%s", media_id)
 
         try:
             # ── YOLO-World inference ─────────────────────────────────────
@@ -200,6 +202,7 @@ def yolo_worker(worker_id: int):
             )
 
             logger.info("Worker %d – done with ID=%s", worker_id, media_id)
+            logger.info("TIMING done ID=%s status=ok", media_id)
 
         except Exception as exc:
             logger.error("Worker %d – unexpected error for ID=%s: %s", worker_id, media_id, exc)
@@ -213,6 +216,7 @@ def yolo_worker(worker_id: int):
                 )
             except Exception:
                 logger.error("Worker %d – could not send error ACK for ID=%s", worker_id, media_id)
+            logger.info("TIMING done ID=%s status=error", media_id)
 
         finally:
             work_queue.task_done()
@@ -270,6 +274,9 @@ def rabbitmq_callback(ch, method, properties, body):
             logger.warning("Malformed message, skipping: %s", data)
             return
 
+        # parsed by tools/e2e_benchmark.py, the worker logs TIMING start when it takes it from work_queue.
+        # Logged before put, so it is always before the TIMING start
+        logger.info("TIMING received ID=%s", media_id)
         work_queue.put({
             "media_id": media_id,
             "media_path": media_path,

@@ -162,6 +162,11 @@ def main():
         media_path = data["MediaPath"]
 
         logger.info("Processing media ID=%s path=%s", media_id, media_path)
+        # parsed by tools/e2e_benchmark.py, docker adds the timestamp.
+        # processed in the callback itself, so received and start are the same moment
+        logger.info("TIMING received ID=%s", media_id)
+        logger.info("TIMING start ID=%s", media_id)
+        status = "ok"
 
         try:
             unknown_image = face_recognition.load_image_file(media_path)
@@ -215,9 +220,11 @@ def main():
 
         except Exception as e:
             logger.error("Error processing faces for ID=%s: %s", media_id, e)
+            status = "error"
 
         send_ack(media_id)
         logger.info("Done with media ID=%s", media_id)
+        logger.info("TIMING done ID=%s status=%s", media_id, status)
 
     # Blocking consume via helper
     logger.info("Listening on 'process.faces'...")

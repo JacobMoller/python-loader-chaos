@@ -155,6 +155,10 @@ def main():
         media_path = data["MediaPath"]
 
         logger.info("Processing media ID=%s path=%s", media_id, media_path)
+        # parsed by tools/e2e_benchmark.py, docker adds the timestamp.
+        # processed in the callback itself, so received and start are the same moment
+        logger.info("TIMING received ID=%s", media_id)
+        logger.info("TIMING start ID=%s", media_id)
 
         caption = None
 
@@ -193,6 +197,7 @@ def main():
 
         send_ack(media_id)
         logger.info("Done with media ID=%s", media_id)
+        logger.info("TIMING done ID=%s status=%s", media_id, "ok" if caption is not None else "error")
 
     logger.info("Listening on 'process.caption'...")
     rabbitMQ_helpers.listen("process.caption", callback)

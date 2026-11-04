@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 DB = "db"
@@ -29,6 +29,13 @@ HAS_GPU = shutil.which("nvidia-smi") is not None
 
 UNITS = {"b": 1, "kib": 2**10, "mib": 2**20, "gib": 2**30, "kb": 1e3, "mb": 1e6, "gb": 1e9}
 
+# the plugins log "TIMING received ID=<media>", "TIMING start ID=<media>" and
+# "TIMING done ID=<media> status=<ok|error|skipped|timeout>"
+TIMING = re.compile(r"TIMING (received|start|done) ID=(\S+)(?: status=(\S+))?")
+# the orchestrator logs "QUEUE size=<n>" whenever its internal media queue grows or shrinks
+QUEUE = re.compile(r"QUEUE size=(\d+)")
+ORCHESTRATOR = "media-orchestrator"
+
 
 # Run a command and return its output
 def run(command, input_text=None):
@@ -48,6 +55,12 @@ def sql(query):
 # Postgres keeps these counters so this is cheap
 def get_db_writes():
     return int(sql("SELECT sum(n_tup_ins + n_tup_upd + n_tup_del) FROM pg_stat_user_tables") or 0)
+
+# the same counters per table -> list of [table, inserted, updated, deleted]
+def db_writes_per_table():
+    output = sql("SELECT relname, n_tup_ins, n_tup_upd, n_tup_del FROM pg_stat_user_tables ORDER BY relname")
+    return [[name, int(ins), int(upd), int(dele)]
+            for name, ins, upd, dele in (line.split(",") for line in output.splitlines())]
 
 # cpu and memory of every container right now -> list of [container, cpu %, memory MiB] (100% cpu = one core)
 def docker_stats():
@@ -78,6 +91,61 @@ def queue_sizes():
         queues = json.load(response)
     return [[q["name"], q.get("messages_ready", 0), q.get("messages_unacknowledged", 0), q.get("consumers", 0)]
             for q in queues]
+
+# cgroup counters of every running container -> {container: {counter: microseconds}}
+# cpu.stat usage_usec is the exact cpu time the container has used (user_usec + system_usec),
+# memory.pressure total is how long its processes were stalled waiting for memory
+# ("some" = at least one process, "full" = all of them). Both count from when the container started
+def cgroup_counters():
+    counters = {}
+    for name in run(["docker", "ps", "--format", "{{.Names}}"]).split():
+        output = run(["docker", "exec", name, "cat", "/sys/fs/cgroup/cpu.stat", "/sys/fs/cgroup/memory.pressure"])
+        values = {}
+        for line in output.splitlines():
+            key, rest = line.split(" ", 1)
+            if key in ("some", "full"):  # some avg10=0.00 avg60=0.00 avg300=0.00 total=0
+                values[f"mem_{key}_usec"] = int(rest.rsplit("total=", 1)[1])
+            else:
+                values[key] = int(rest)
+        counters[name] = values
+    return counters
+
+# docker logs --timestamps uses RFC3339Nano (2026-11-04T10:00:00.123456789Z, trailing zeros dropped) -> unix seconds
+def docker_time(stamp):
+    whole, _, fraction = stamp.rstrip("Z").partition(".")
+    seconds = datetime.strptime(whole, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+    return seconds + float("0." + (fraction or "0"))
+
+# when every container received, started and finished each media since `since` (unix seconds), from its
+# TIMING lines -> list of [container, media id, received, start, end, status], and the orchestrator's
+# queue size -> list of [time, size]. The time is when docker received the line, so all containers share
+# one clock (the same as the db). Missing times are None, a media without a done line is "unfinished"
+def plugin_timings(since):
+    timings, queue_sizes = [], []
+    for name in run(["docker", "ps", "--format", "{{.Names}}"]).split():
+        logs = subprocess.run(["docker", "logs", "--timestamps", "--since", f"{since:.3f}", name],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        events = []
+        for line in (logs.stdout + logs.stderr).splitlines():  # python logging writes to stderr
+            match = TIMING.search(line)
+            if match:
+                events.append((docker_time(line.split(" ", 1)[0]), *match.groups()))
+            elif name == ORCHESTRATOR and (match := QUEUE.search(line)):
+                queue_sizes.append([docker_time(line.split(" ", 1)[0]), int(match.group(1))])
+        received = {}  # media id -> received times not started yet
+        started = {}  # media id -> [received, start] not done yet
+        for t, event, media_id, status in sorted(events):
+            if event == "received":
+                received.setdefault(media_id, []).append(t)
+            elif event == "start":
+                t_received = received[media_id].pop(0) if received.get(media_id) else None
+                started.setdefault(media_id, []).append([t_received, t])
+            elif started.get(media_id):
+                timings.append([name, media_id, *started[media_id].pop(0), t, status])
+        timings += [[name, media_id, t_received, t_start, None, "unfinished"]
+                    for media_id, items in started.items() for t_received, t_start in items]
+        timings += [[name, media_id, t, None, None, "unfinished"] for media_id, ts in received.items() for t in ts]
+    return timings, sorted(queue_sizes)
 
 # face recognition keeps the faces it has seen in KNOWN_FACES and in memory, and the db reset
 # clears neither. Without this, later runs match against the faces of earlier runs
@@ -147,6 +215,14 @@ def measure(folder, run_dir, poll, quiet):
     queues_csv = csv.writer(queues_file)
     queues_csv.writerow(["t_s", "queue", "ready", "unacked", "consumers"])
 
+    # rows written per table, counted since the db reset (cumulative)
+    db_file = open(run_dir / "db.csv", "w", newline="", encoding="utf-8")
+    db_csv = csv.writer(db_file)
+    db_csv.writerow(["t_s", "table", "inserted", "updated", "deleted"])
+
+    # read before the start time, it takes a few seconds
+    counters_start = cgroup_counters()
+
     start = float(sql("SELECT extract(epoch FROM now())"))  # db clock, using the commit timestamps TODO maybe ask if this is okay
     start_of_measure = time.time()
     
@@ -160,7 +236,10 @@ def measure(folder, run_dir, poll, quiet):
         now = time.time()
         time_since_start = round(now - start_of_measure, 1)
 
-        writes = get_db_writes()
+        tables = db_writes_per_table()
+        writes = sum(ins + upd + dele for _, ins, upd, dele in tables)
+        for table, ins, upd, dele in tables:
+            db_csv.writerow([time_since_start, table, ins, upd, dele])
         if writes != last_writes: # track when last write happend
             last_writes = writes
             last_change = now
@@ -178,6 +257,7 @@ def measure(folder, run_dir, poll, quiet):
         stats_file.flush()
         gpu_file.flush()
         queues_file.flush()
+        db_file.flush()
 
         insert_running = process.poll() is None  # poll() is None while the process is running
         quiet_for = now - last_change
@@ -191,6 +271,44 @@ def measure(folder, run_dir, poll, quiet):
     stats_file.close()
     gpu_file.close()
     queues_file.close()
+    db_file.close()
+
+    # cpu time and memory stall time per container during the run (includes the quiet period at the end)
+    counters_end = cgroup_counters()
+    cpu_total = 0
+    with open(run_dir / "cgroup.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["container", "cpu_s", "cpu_user_s", "cpu_system_s", "mem_stall_some_s", "mem_stall_full_s"])
+        for name, end_values in sorted(counters_end.items()):
+            if name not in counters_start:  # started during the run
+                continue
+            diff = {key: round((end_values[key] - counters_start[name][key]) / 1e6, 3) for key in end_values}
+            writer.writerow([name, diff["usage_usec"], diff["user_usec"], diff["system_usec"],
+                             diff["mem_some_usec"], diff["mem_full_usec"]])
+            cpu_total += diff["usage_usec"]
+
+    # one row per container and media, times in seconds since the start of the run (db clock).
+    # wait = received -> start (time in the plugin's own queue), duration = start -> end
+    timings, orchestrator_queue = plugin_timings(start)
+    since_start = lambda t: round(t - start, 3) if t is not None else None
+    between = lambda a, b: round(b - a, 3) if a is not None and b is not None else None
+    busy = {}
+    with open(run_dir / "timings.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["container", "media_id", "received_s", "start_s", "end_s", "wait_s", "duration_s", "status"])
+        for name, media_id, t_received, t_start, t_end, status in sorted(
+                timings, key=lambda r: (r[0], r[2] if r[2] is not None else r[3])):
+            duration = between(t_start, t_end)
+            writer.writerow([name, media_id, since_start(t_received), since_start(t_start), since_start(t_end),
+                             between(t_received, t_start), duration, status])
+            busy[name] = round(busy.get(name, 0) + (duration or 0), 2)
+
+    # medias waiting in the orchestrator, one row each time the size changes
+    with open(run_dir / "orchestrator_queue.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["t_s", "queued"])
+        for t, size in orchestrator_queue:
+            writer.writerow([since_start(t), size])
 
     # get last write from db
     last_write = " UNION ALL ".join(f"SELECT max(pg_xact_commit_timestamp(xmin)) AS ts FROM {t}" for t in TABLES)
@@ -200,6 +318,8 @@ def measure(folder, run_dir, poll, quiet):
     result = {
         "media_count": int(media_count),
         "total_s": round(float(end) - start, 2) if end else None,
+        "cpu_s": round(cpu_total, 2),  # all containers together, per container in cgroup.csv
+        "busy_s": busy,  # per container, sum of the durations in timings.csv
     }
     with open(run_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
@@ -230,9 +350,9 @@ def main():
     # one row per run
     with open(out_dir / "runs.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["run", "media_count", "total_s"])
+        writer.writerow(["run", "media_count", "total_s", "cpu_s"])
         for i, result in enumerate(results, start=1):
-            writer.writerow([i, result["media_count"], result["total_s"]])
+            writer.writerow([i, result["media_count"], result["total_s"], result["cpu_s"]])
     print(f"Results in {out_dir}")
 
 if __name__ == "__main__":
