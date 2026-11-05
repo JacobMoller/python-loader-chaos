@@ -1,4 +1,7 @@
-FROM ultralytics/ultralytics:latest-cpu
+# CPU-only PyTorch by default. docker-compose.gpu.yaml builds from
+# ultralytics/ultralytics:latest instead, which has CUDA PyTorch.
+ARG BASE_IMAGE=ultralytics/ultralytics:latest-cpu
+FROM ${BASE_IMAGE}
 
 WORKDIR /app
 
