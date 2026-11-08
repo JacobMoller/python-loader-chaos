@@ -1,0 +1,23 @@
+services:
+  classifier:
+    build:
+      args:
+        # CUDA PyTorch instead of the CPU-only latest-cpu image
+        BASE_IMAGE: ultralytics/ultralytics:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  captioning:
+    # torch from PyPI on linux/amd64 is already a CUDA build, it only needs the GPU
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
