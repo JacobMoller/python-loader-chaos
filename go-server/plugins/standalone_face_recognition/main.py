@@ -104,9 +104,17 @@ def handle_people_detected(data):
     media_uri = data["MediaURI"]
 
     logger.info("Processing media ID=%s URI=%s", media_id, media_uri)
-
-    with media_downloader_client.local_media(media_uri) as media_path:
-        recognize_faces(media_id, media_path)
+    # parsed by tools/e2e_benchmark.py, docker adds the timestamp. With prefetch_count=1
+    # a message is only delivered when the plugin is free, so received and start are the same moment
+    logger.info("TIMING received ID=%s", media_id)
+    logger.info("TIMING start ID=%s", media_id)
+    status = "error"  # if anything below raises
+    try:
+        with media_downloader_client.local_media(media_uri) as media_path:
+            recognize_faces(media_id, media_path)
+        status = "ok"
+    finally:
+        logger.info("TIMING done ID=%s status=%s", media_id, status)
 
     logger.info("Done with media ID=%s", media_id)
 

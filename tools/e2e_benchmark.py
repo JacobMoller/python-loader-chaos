@@ -6,13 +6,17 @@ import re
 import shutil
 import subprocess
 import time
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 DB = "db"
 CLIENT = "python-client"
-FACES = "plugin-face-recognition"
+# face recognition container in docker-compose.yaml and in docker-compose.standalone.yaml
+FACES = ["plugin-face-recognition", "standalone-face-recognition"]
+# logged by face recognition once it consumes again (rabbitMQ_helpers.listen / rabbitMQ_standalone.consume)
+FACES_READY = ["Listening on", "Consuming from"]
 # where face recognition saves every face it has seen, see the known_faces volume in docker-compose
 KNOWN_FACES = "/app/known_faces"
 
@@ -150,27 +154,44 @@ def plugin_timings(since):
 # face recognition keeps the faces it has seen in KNOWN_FACES and in memory, and the db reset
 # clears neither. Without this, later runs match against the faces of earlier runs
 def reset_known_faces(timeout=60):
-    if not run(["docker", "ps", "-q", "--filter", f"name=^{FACES}$"]).strip():
+    running = run(["docker", "ps", "--format", "{{.Names}}"]).split()
+    faces = next((name for name in FACES if name in running), None)
+    if faces is None:
         return  # plugin is not running
 
-    run(["docker", "exec", FACES, "sh", "-c", f"rm -f {KNOWN_FACES}/*"])
-    run(["docker", "restart", FACES])
+    run(["docker", "exec", faces, "sh", "-c", f"rm -f {KNOWN_FACES}/*"])
+    run(["docker", "restart", faces])
 
-    # wait until it listens again, its queue only exists while it is connected so it would miss medias.
-    # StartedAt is the docker clock, so it matches the log timestamps
-    started = run(["docker", "inspect", "-f", "{{.State.StartedAt}}", FACES]).strip()
+    # wait until it consumes again. With an exclusive queue it would miss medias before that
+    # (docker-compose.yaml). StartedAt is the docker clock, so it matches the log timestamps
+    started = run(["docker", "inspect", "-f", "{{.State.StartedAt}}", faces]).strip()
     deadline = time.time() + timeout
     while time.time() < deadline:
         # python logging writes to stderr, so read both
-        logs = subprocess.run(["docker", "logs", "--since", started, FACES],
+        logs = subprocess.run(["docker", "logs", "--since", started, faces],
                               capture_output=True, text=True, encoding="utf-8", errors="replace")
-        if "Listening on" in logs.stdout + logs.stderr:
+        if any(ready in logs.stdout + logs.stderr for ready in FACES_READY):
             return
         time.sleep(1)
-    raise RuntimeError(f"{FACES} did not start listening within {timeout}s")
+    raise RuntimeError(f"{faces} did not start consuming within {timeout}s")
+
+# named queues (docker-compose.standalone.yaml) are durable and keep their messages when a run
+# is stopped or a plugin restarts, so empty them. The auto-named (amq.gen-) queues are deleted
+# with their consumer anyway
+def purge_named_queues():
+    request = urllib.request.Request(RABBIT + "/api/queues?columns=name", headers={"Authorization": AUTH})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        names = [q["name"] for q in json.load(response)]
+    for name in names:
+        if name.startswith("amq."):
+            continue
+        url = f"{RABBIT}/api/queues/%2F/{urllib.parse.quote(name, safe='')}/contents"
+        urllib.request.urlopen(urllib.request.Request(url, method="DELETE", headers={"Authorization": AUTH}),
+                               timeout=10)
 
 def reset_and_load_tagsets():
     reset_known_faces()
+    purge_named_queues()
 
     # reset db using the client (it asks for confirmation)
     run(["docker", "exec", "-i", CLIENT, "python", "cli.py", "reset"], input_text="y\n")

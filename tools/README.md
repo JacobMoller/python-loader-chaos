@@ -18,15 +18,15 @@ open go_graph.html
 
 ## Options
 
-| Option | Description | Default |
-|---|---|---|
-| `--lang L` | `python` or `go` | `python` |
-| `--depth N` | Path levels to keep. Deeper files are merged into their folder at level N | `2` |
-| `--ignore X` | Skip a folder by name (`tests`) or repo-relative path (`client/tests`). Repeatable | none |
-| `--search-path X` | Python only. Extra folder to resolve imports from, like `PYTHONPATH`. Repeatable | none |
-| `--hide-isolated` | Hide nodes without any edges | off |
-| `-o FILE` | Output HTML file | `arch_graph.html` |
-| `--root DIR` | Repository to analyze | `.` |
+| Option            | Description                                                                        | Default           |
+| ----------------- | ---------------------------------------------------------------------------------- | ----------------- |
+| `--lang L`        | `python` or `go`                                                                   | `python`          |
+| `--depth N`       | Path levels to keep. Deeper files are merged into their folder at level N          | `2`               |
+| `--ignore X`      | Skip a folder by name (`tests`) or repo-relative path (`client/tests`). Repeatable | none              |
+| `--search-path X` | Python only. Extra folder to resolve imports from, like `PYTHONPATH`. Repeatable   | none              |
+| `--hide-isolated` | Hide nodes without any edges                                                       | off               |
+| `-o FILE`         | Output HTML file                                                                   | `arch_graph.html` |
+| `--root DIR`      | Repository to analyze                                                              | `.`               |
 
 ## What is skipped
 
@@ -66,35 +66,38 @@ python3 tools/arch_graph.py --lang go --depth 3 --ignore tools -o graphs/go_dept
 - Imports are resolved from the importing file's folder upward to the repo root, plus any `--search-path`
 - The HTML loads `vis-network` from a CDN, so it needs an internet connection to open
 
-
-
 # Class diagrams
+
 Using pyreverse from pylint to generate class diagrams for the `client`.
 Using goplantuml to generate plantuml for the `go-server`.
 
 ## Python
+
 Prerequisites:
+
 ```bash
-python -m pip install pylint    
+python -m pip install pylint
 ```
 
 ```bash
-pyreverse -o png -p client client/filemgmt client/grpc_client.py client/sysmon.py client/cli.py          
+pyreverse -o png -p client client/filemgmt client/grpc_client.py client/sysmon.py client/cli.py
 ```
 
 ## GO
+
 Prerequisites:
+
 ```bash
-go install github.com/jfeliu007/goplantuml/cmd/goplantuml@latest   
+go install github.com/jfeliu007/goplantuml/cmd/goplantuml@latest
 brew install plantuml
 ```
+
 Ignoring dataloader and media_downloader/gen as this is auto generated code.
+
 ```bash
 ~/go/bin/goplantuml -recursive -ignore dataloader,media_downloader/gen . > go.puml
-plantuml go.puml 
+plantuml go.puml
 ```
-
-
 
 # What to run to get same results in graph folder:
 
@@ -112,13 +115,15 @@ python3 tools/arch_graph.py --lang go --depth 3 --ignore tools -o tools/graphs/g
 
 ```bash
 ~/go/bin/goplantuml -recursive -ignore dataloader,media_downloader/gen . > go.puml
-plantuml go.puml 
+plantuml go.puml
 ```
 
 ```bash
-pyreverse -o png -p client client/filemgmt client/grpc_client.py client/sysmon.py client/cli.py          
+pyreverse -o png -p client client/filemgmt client/grpc_client.py client/sysmon.py client/cli.py
 ```
+
 # e2e_benchmark.py
+
 Script used for experiment E3.
 Measures the end-to-end time from queueing a folder of medias (`cli.py add medias`) until the pipeline has processed all of them. It also records CPU/memory per container and GPU while it runs (if machine has GPU). It observes the running stack.
 
@@ -126,13 +131,22 @@ Measures the end-to-end time from queueing a folder of medias (`cli.py add media
 - **When to stop waiting:** a run is over when the insert has finished and the database has had no writes for `--quiet` seconds. The waiting time is not part of the result.
 
 ## Usage
+
 After changing `docker-compose.yaml`, recreate the database container once with `docker compose up -d db`. Put the medias in a folder under `medias/`, then from the repo root:
 
 ```bash
 python tools/e2e_benchmark.py --folder /app/medias/bench_1000 --runs 5 --label baseline
 ```
 
-`--folder` is the path inside the containers. Before each run the database is reset and the tagsets are created. Face recognition also remembers every face it has seen (in the `known_faces` volume and in memory), so its folder is emptied and the plugin restarted, and the run waits until it listens again. Other options: `--poll` (seconds between samples, default 1; in practice about 2 s, because `docker stats --no-stream` takes that long per call) and `--quiet` (default 60; a plugin that works longer than this without writing would end a run early).
+The script also works with the standalone version (`docker-compose.standalone.yaml`, one durable queue per plugin). Start it with the `heavy` profile, otherwise captioning, classifier and face recognition don't run:
+
+```bash
+docker compose -f docker-compose.standalone.yaml --profile heavy up -d --build --remove-orphans
+```
+
+The standalone images have the same names as the ones from `docker-compose.yaml`, so use `--build` when switching between the two.
+
+`--folder` is the path inside the containers. Before each run the database is reset and the tagsets are created, and the named (durable) RabbitMQ queues are emptied, so messages left from a stopped run are not counted. Face recognition also remembers every face it has seen (in the `known_faces` volume and in memory), so its folder is emptied and the plugin restarted, and the run waits until it listens again. Other options: `--poll` (seconds between samples, default 1; in practice about 2 s, because `docker stats --no-stream` takes that long per call) and `--quiet` (default 60; a plugin that works longer than this without writing would end a run early).
 
 ## Output
 

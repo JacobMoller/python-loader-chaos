@@ -74,44 +74,52 @@ def handle_media(body: bytes, routing_key: str):
 
     t0 = time.time()
     logger.info("Processing ID=%s URI=%s", media_id, media_uri)
+    # parsed by tools/e2e_benchmark.py, docker adds the timestamp. With prefetch_count=1
+    # a message is only delivered when the plugin is free, so received and start are the same moment
+    logger.info("TIMING received ID=%s", media_id)
+    logger.info("TIMING start ID=%s", media_id)
+    status = "error"  # if anything below raises
+    try:
+        with media_downloader_client.local_media(media_uri) as media_path:
+            results = model(
+                media_path,
+                show=False,
+                save=False,
+                stream=False,
+                device=DEVICE,
+                conf=CONF_THRESHOLD,
+                verbose=False,
+            )
 
-    with media_downloader_client.local_media(media_uri) as media_path:
-        results = model(
-            media_path,
-            show=False,
-            save=False,
-            stream=False,
-            device=DEVICE,
-            conf=CONF_THRESHOLD,
-            verbose=False,
+        num_detections = 0
+        seen_labels = set()
+        for result in results:
+            for box in result.boxes:
+                num_detections += 1
+                name = result.names[int(box.cls[0])]
+                if name not in seen_labels:
+                    seen_labels.add(name)
+                    rabbitMQ_standalone.publish(
+                        RABBITMQ_PUBLISH_KEY,
+                        json.dumps({"taggingValue": name, "mediaID": media_id}),
+                    )
+
+        logger.info(
+            "ID=%s: %d detections in %ss – labels=%s",
+            media_id, num_detections, round(time.time() - t0, 2), list(seen_labels),
         )
 
-    num_detections = 0
-    seen_labels = set()
-    for result in results:
-        for box in result.boxes:
-            num_detections += 1
-            name = result.names[int(box.cls[0])]
-            if name not in seen_labels:
-                seen_labels.add(name)
-                rabbitMQ_standalone.publish(
-                    RABBITMQ_PUBLISH_KEY,
-                    json.dumps({"taggingValue": name, "mediaID": media_id}),
-                )
-
-    logger.info(
-        "ID=%s: %d detections in %ss – labels=%s",
-        media_id, num_detections, round(time.time() - t0, 2), list(seen_labels),
-    )
-
-    # ── Produce work for the face recognition plugin ─────────────────────
-    if seen_labels & HUMAN_LABELS:
-        rabbitMQ_standalone.publish(
-            PEOPLE_DETECTED_KEY,
-            json.dumps({"ID": media_id, "MediaURI": media_uri}),
-        )
-        logger.info("Human detected in ID=%s (labels=%s), published %s",
-                    media_id, seen_labels & HUMAN_LABELS, PEOPLE_DETECTED_KEY)
+        # ── Produce work for the face recognition plugin ─────────────────────
+        if seen_labels & HUMAN_LABELS:
+            rabbitMQ_standalone.publish(
+                PEOPLE_DETECTED_KEY,
+                json.dumps({"ID": media_id, "MediaURI": media_uri}),
+            )
+            logger.info("Human detected in ID=%s (labels=%s), published %s",
+                        media_id, seen_labels & HUMAN_LABELS, PEOPLE_DETECTED_KEY)
+        status = "ok"
+    finally:
+        logger.info("TIMING done ID=%s status=%s", media_id, status)
 
 
 # =========================

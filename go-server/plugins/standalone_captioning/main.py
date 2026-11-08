@@ -138,19 +138,27 @@ def handle_media(body: bytes, routing_key: str):
         return
 
     logger.info("Processing media ID=%s URI=%s", media_id, media_uri)
+    # parsed by tools/e2e_benchmark.py, docker adds the timestamp. With prefetch_count=1
+    # a message is only delivered when the plugin is free, so received and start are the same moment
+    logger.info("TIMING received ID=%s", media_id)
+    logger.info("TIMING start ID=%s", media_id)
+    status = "error"  # if anything below raises
+    try:
+        with media_downloader_client.local_media(media_uri) as media_path:
+            caption = caption_image(media_id, media_path)
 
-    with media_downloader_client.local_media(media_uri) as media_path:
-        caption = caption_image(media_id, media_path)
+        if caption is None:
+            logger.error("All attempts failed for ID=%s, skipping.", media_id)
+            return
 
-    if caption is None:
-        logger.error("All attempts failed for ID=%s, skipping.", media_id)
-        return
-
-    rabbitMQ_standalone.publish(
-        "tagging.not_added.1.Caption",
-        json.dumps({"taggingValue": caption, "mediaID": media_id}),
-    )
-    logger.info("Caption: '%s' for ID=%s", caption, media_id)
+        rabbitMQ_standalone.publish(
+            "tagging.not_added.1.Caption",
+            json.dumps({"taggingValue": caption, "mediaID": media_id}),
+        )
+        logger.info("Caption: '%s' for ID=%s", caption, media_id)
+        status = "ok"
+    finally:
+        logger.info("TIMING done ID=%s status=%s", media_id, status)
 
 
 def main():
