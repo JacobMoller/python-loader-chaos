@@ -216,7 +216,16 @@ def wait_until_idle(stable_for=10):
             stable_since = time.time()
         time.sleep(1)
 
-# Add the medias in `folder`, 
+# dump the whole db to `path` in pg_dump's custom format (compressed). Restore it with
+# pg_restore -d <db> db.dump, or list its contents with pg_restore -l db.dump
+def dump_db(path):
+    with open(path, "wb") as f:
+        result = subprocess.run(["docker", "exec", DB, "pg_dump", "-U", "postgres", "-d", "loader-testing", "-Fc"],
+                                stdout=f, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise RuntimeError(f"pg_dump failed: {result.stderr.decode(errors='replace').strip()}")
+
+# Add the medias in `folder`,
 # wait until the pipeline is done and save the results in run_dir.
 def measure(folder, run_dir, poll, quiet):
     run_dir.mkdir(parents=True)
@@ -344,6 +353,10 @@ def measure(folder, run_dir, poll, quiet):
     }
     with open(run_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
+
+    # the db state at the end of this run, so the results can be validated later. Taken after
+    # all measurements, and the next run resets the db, so every run gets its own dump
+    dump_db(run_dir / "db.dump")
     return result
 
 
