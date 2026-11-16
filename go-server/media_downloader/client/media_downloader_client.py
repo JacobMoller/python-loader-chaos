@@ -12,7 +12,7 @@ released again when the block exits, so the cache can evict them.
 import logging
 import os
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 
 import grpc
 
@@ -75,3 +75,21 @@ def local_media(media_uri: str):
         yield media_path
     finally:
         release_media(media_uri)
+
+
+@contextmanager
+def local_medias(medias: list[tuple]):
+    """Batch version of local_media. Takes (media_id, media_uri) pairs and yields
+    (media_id, media_uri, media_path) for every media that could be requested.
+    Media that are unavailable are logged and left out, so one missing file
+    does not fail the whole batch. All media are released afterwards."""
+    with ExitStack() as stack:
+        available = []
+        for media_id, media_uri in medias:
+            try:
+                media_path = stack.enter_context(local_media(media_uri))
+            except MediaUnavailableError as e:
+                logger.warning("Skipping media ID=%s: %s", media_id, e)
+                continue
+            available.append((media_id, media_uri, media_path))
+        yield available
