@@ -39,6 +39,8 @@ TIMING = re.compile(r"TIMING (received|start|done) ID=(\S+)(?: status=(\S+))?")
 # the orchestrator logs "QUEUE size=<n>" whenever its internal media queue grows or shrinks
 QUEUE = re.compile(r"QUEUE size=(\d+)")
 ORCHESTRATOR = "media-orchestrator"
+# containers that consume from rabbitmq (docker-compose.yaml and docker-compose.standalone.yaml)
+PLUGIN_PREFIXES = ("plugin-", "standalone-", ORCHESTRATOR)
 
 
 # Run a command and return its output
@@ -204,6 +206,29 @@ def reset_and_load_tagsets():
     # exif needs Location to save GPS, which in turn triggers geodatas
     # TODO pick correct tagset for benchnark
     run(["docker", "exec", CLIENT, "python", "cli.py", "add", "tagset", "Location", "1"])
+
+# a plugin is ready once it consumes from rabbitmq. Messages published before that are lost (its queue
+# may not exist yet), e.g. while it still downloads or loads its model. Every plugin container needs a
+# rabbitmq channel with a consumer, matched on the container's ip
+def wait_until_plugins_ready(timeout=900):
+    deadline = time.time() + timeout
+    while True:
+        plugins = [name for name in run(["docker", "ps", "--format", "{{.Names}}"]).split()
+                   if name.startswith(PLUGIN_PREFIXES)]
+        ips = {name: run(["docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}",
+                          name]).split() for name in plugins}
+        request = urllib.request.Request(RABBIT + "/api/channels", headers={"Authorization": AUTH})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            consuming = {c["connection_details"]["peer_host"] for c in json.load(response)
+                         if c.get("consumer_count", 0) > 0 and c.get("connection_details")}
+        not_ready = [name for name in plugins if not consuming & set(ips[name])]
+        if not not_ready:
+            print(f"plugins ready: {', '.join(sorted(plugins))}")
+            return
+        if time.time() > deadline:
+            raise RuntimeError(f"plugins not consuming after {timeout}s: {', '.join(not_ready)}")
+        print(f"waiting for plugins: {', '.join(sorted(not_ready))}")
+        time.sleep(5)
 
 # wait until the events from the reset and tagset import are processed, so they aren't measured
 def wait_until_idle(stable_for=10):
@@ -376,6 +401,7 @@ def main():
     for i in range(1, args.runs + 1):
         print(f"=== run {i}/{args.runs} ===")
         reset_and_load_tagsets()
+        wait_until_plugins_ready()
         wait_until_idle()
         result = measure(args.folder, out_dir / f"run_{i:02d}", args.poll, args.quiet)
         print(f"medias {result['media_count']}, total {result['total_s']}s")
