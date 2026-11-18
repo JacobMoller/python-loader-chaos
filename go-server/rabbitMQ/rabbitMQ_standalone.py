@@ -151,9 +151,12 @@ _pub_lock = threading.Lock()
 _pub_connection = None
 _pub_channel = None
 
+# Persistent: stored on disk, so a message survives a broker restart
+PERSISTENT = pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent)
 
 def publish(routing_key: str, body: str):
-    """Publish a message on the exchange. Thread-safe, reconnects if the
+    """Publish a persistent message on the exchange and wait until RabbitMQ
+    confirms it, raising if it does not. Thread-safe, reconnects if the
     publish connection was closed (e.g. by RabbitMQ after being idle)."""
     global _pub_connection, _pub_channel
     with _pub_lock:
@@ -165,7 +168,12 @@ def publish(routing_key: str, body: str):
                     _pub_connection = _connect("publisher", heartbeat=0)
                     _pub_channel = _pub_connection.channel()
                     _pub_channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type="topic", durable=True)
-                _pub_channel.basic_publish(exchange=EXCHANGE_NAME, routing_key=routing_key, body=body)
+                    # Publisher confirms: basic_publish blocks until RabbitMQ has
+                    # taken responsibility for the message, and raises if it refuses
+                    _pub_channel.confirm_delivery()
+                _pub_channel.basic_publish(
+                    exchange=EXCHANGE_NAME, routing_key=routing_key, body=body, properties=PERSISTENT
+                )
                 return
             except pika.exceptions.AMQPError as e:
                 if attempt == 2:

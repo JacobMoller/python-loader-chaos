@@ -1881,7 +1881,7 @@ func listenForTaggingMessage(server *DataLoaderServer) {
 }
 
 func listenForHierarchyMessage(server *DataLoaderServer) {
-	rmq.Listen("hierarchy", func(msg amqp.Delivery) {
+	rmq.ConsumeQueue("go_server.hierarchy", []string{"hierarchy"}, func(msg amqp.Delivery) {
 		log.Printf("debug : received message: %s", msg.Body)
 		// Parse the message body as JSON
 		var message map[string]interface{}
@@ -2025,7 +2025,7 @@ func listenForHierarchyMessage(server *DataLoaderServer) {
 // geodatas.known messages are logged but ignored: the location is already known
 // and its tags are already in the database.
 func listenForGeodatasMessage(server *DataLoaderServer) {
-	rmq.Listen("geodatas.new", func(msg amqp.Delivery) {
+	handleNew := func(msg amqp.Delivery) {
 		log.Printf("[geodatas] received message: %s", msg.Body)
 
 		var message map[string]interface{}
@@ -2112,9 +2112,9 @@ func listenForGeodatasMessage(server *DataLoaderServer) {
 		}
 
 		log.Printf("[geodatas] finished processing message for media_id=%d", mediaId)
-	})
+	}
 
-	rmq.Listen("geodatas.known", func(msg amqp.Delivery) {
+	handleKnown :=  func(msg amqp.Delivery) {
 		// The location is already known — its tags are already in the database.
 		// Nothing to do server-side; log for traceability only.
 		var message map[string]interface{}
@@ -2124,6 +2124,16 @@ func listenForGeodatasMessage(server *DataLoaderServer) {
 		}
 		log.Printf("[geodatas.known] media_id=%v place_id=%v already processed, skipping",
 			message["media_id"], message["place_id"])
+	}
+
+	// One queue for both message types: two blocking consumers in a row
+	// would never start the second one
+	rmq.ConsumeQueue("go_server.geodatas", []string{"geodatas.new", "geodatas.known"}, func(msg amqp.Delivery) {
+		if msg.RoutingKey == "geodatas.known" {
+			handleKnown(msg)
+		} else {
+			handleNew(msg)
+		}
 	})
 }
 
@@ -2150,7 +2160,7 @@ func listenForTaggingUpdateMessage(server *DataLoaderServer) {
 		"POI Category":  "poi_category",
 	}
 
-	rmq.Listen("tagging_update.*", func(msg amqp.Delivery) {
+	rmq.ConsumeQueue("go_server.tagging_update", []string{"tagging_update.*"}, func(msg amqp.Delivery) {
 		log.Printf("[tagging_update] received message: %s (key=%s)", msg.Body, msg.RoutingKey)
 
 		// Extract the tagset name from the routing key: tagging_update.<tagsetName>

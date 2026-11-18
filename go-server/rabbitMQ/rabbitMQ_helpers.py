@@ -31,11 +31,17 @@ def producer_connection_init():
 
     channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='topic', durable=True)
 
+    # Publisher confirms: basic_publish blocks until RabbitMQ has taken
+    # responsibility for the message, and raises if it refuses
+    channel.confirm_delivery()
+
     return channel, connection
 
 def publish_message(channel, topic: str, body: str):
+    # Persistent: stored on disk, so the message survives a broker restart
     channel.basic_publish(
-    exchange=EXCHANGE_NAME, routing_key=topic, body=body)
+    exchange=EXCHANGE_NAME, routing_key=topic, body=body,
+    properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent))
 
 def connection_end(connection, channel):
     """
