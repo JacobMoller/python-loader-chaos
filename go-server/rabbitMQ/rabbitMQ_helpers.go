@@ -70,6 +70,12 @@ func ProducerConnexionInit() *Producer {
 	)
 	failOnError(err, "Failed to declare an exchange")
 
+	// Publisher confirms: RabbitMQ acknowledges every published message once
+	// it has taken responsibility for it (written to disk for persistent
+	// messages on durable queues)
+	err = ch.Confirm(false)
+	failOnError(err, "Failed to put the channel in confirm mode")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -77,16 +83,23 @@ func ProducerConnexionInit() *Producer {
 }
 
 func PublishMessage(p *Producer, body, topic string) {
-	err := p.channel.PublishWithContext(p.ctx,
+	confirmation, err := p.channel.PublishWithDeferredConfirmWithContext(p.ctx,
 		exchangeName, // exchange
 		topic,        // routing key
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(body),
+			// Persistent: stored on disk, so it survives a broker restart
+			DeliveryMode: amqp.Persistent,
+			Body:         []byte(body),
 		})
 	failOnError(err, "Failed to publish a message")
+
+	// Wait for the broker to confirm, so a message is never lost silently
+	if !confirmation.Wait() {
+		log.Panicf("Failed to publish a message: not confirmed by RabbitMQ [%s] %s", topic, body)
+	}
 
 	log.Printf(" [%s] Sent %s", topic, body)
 }

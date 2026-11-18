@@ -8,8 +8,9 @@ package rabbitMQ
 // all plugins whose bindings match, while replicas of the same plugin compete
 // for the messages of that one queue.
 //
-// Producers are unchanged: they keep publishing to the exchange with
-// PublishMessage and never need to know which queues exist.
+// Producers keep publishing to the exchange with PublishMessage and never need
+// to know which queues exist. Messages are persistent and confirmed, and the
+// queues are durable, so jobs survive restarts of plugins and of the broker.
 
 import (
 	"errors"
@@ -72,7 +73,12 @@ func DeclarePluginQueue(ch *amqp.Channel, queueName string, bindingKeys []string
 // were not fully handled (crash, lost connection) are redelivered.
 // Reconnects forever and never returns.
 func Consume(plugin string, bindingKeys []string, handler func(amqp.Delivery)) {
-	queueName := QueueName(plugin)
+	ConsumeQueue(QueueName(plugin), bindingKeys, handler)
+}
+
+// ConsumeQueue is Consume for a queue that does not belong to a standalone
+// plugin, e.g. go-server's own queues, so it takes the full queue name.
+func ConsumeQueue(queueName string, bindingKeys []string, handler func(amqp.Delivery)) {
 	for {
 		err := consumeOnce(queueName, bindingKeys, handler)
 		log.Printf("Consumer on %s stopped: %v - reconnecting in %s", queueName, err, reconnectDelay)
